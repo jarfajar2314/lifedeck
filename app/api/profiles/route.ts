@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   try {
     const userId = await requireAuth(request)
     const rows = await query(`SELECT * FROM public.profiles WHERE id = $1`, [userId])
-    if (rows.length === 0) return Response.json({ error: "Not found" }, { status: 404 })
-    return successResponse(coerceNumeric(toCamel(TABLE, rows[0])))
+    const mapped = rows.map((r) => coerceNumeric(toCamel(TABLE, r)))
+    return successResponse(mapped)
   } catch (err) { return errorResponse(err) }
 }
 

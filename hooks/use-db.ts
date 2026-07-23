@@ -8,6 +8,7 @@ import * as store from "@/lib/data-store"
 
 function useTable<T>(table: string, spaceId?: string) {
   useEffect(() => {
+    if (!spaceId) return
     store.ensureLoaded<T>(table, spaceId)
   }, [table, spaceId])
 

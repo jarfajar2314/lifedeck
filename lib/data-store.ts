@@ -1,9 +1,10 @@
 "use client"
 
-// Shared client-side cache for /api/data. Any number of components reading the
-// same table+space share one in-flight fetch and one cache entry instead of each
-// issuing its own network request. Mutations apply to the cache immediately
-// (optimistic) and roll back if the server call fails.
+// Shared client-side cache for entity API routes (/api/transactions, /api/notes,
+// /api/tasks, etc). Any number of components reading the same table+space share
+// one in-flight fetch and one cache entry instead of each issuing its own network
+// request. Mutations apply to the cache immediately (optimistic) and roll back if
+// the server call fails.
 
 type Row = { id: string }
 type Listener = () => void
