@@ -53,6 +53,7 @@
   * `docs(...)`: Documentation or PRD updates.
   * `chore(...)`: Configuration or dependency updates.
 * **Commit Message Standard:** Include a concise imperative summary title (max 50 chars) and a bulleted description body explaining *what* and *why*.
+* **No Co-Authors:** Never add `Co-Authored-By:` trailers (or any other co-author attribution) to commit messages — including `Co-Authored-By: Claude` or any AI agent. Commits are authored solely by the user (Git user configured in the repo). This applies to commits made directly and commits made via any tool default that would otherwise append such a trailer.
 
 ---
 
