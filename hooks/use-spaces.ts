@@ -86,16 +86,9 @@ export function useSpaces(userId?: string) {
       items: [...items, space],
       record: space as unknown as Record<string, unknown>,
     }))
-    if (userId) {
-      const member = { id: uid(), spaceId: id, userId, role: "owner" as const, joinedAt: new Date().toISOString() } as unknown as SpaceMember
-      await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "add", (items) => ({
-        items: [...items, member],
-        record: member as unknown as Record<string, unknown>,
-      }))
-    }
     setCurrentId(id)
     return { id, inviteCode }
-  }, [userId, setCurrentId])
+  }, [setCurrentId])
 
   const joinSpace = useCallback(async (inviteCode: string) => {
     const allSpacesList = await store.list<Space>("spaces")
