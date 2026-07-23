@@ -54,13 +54,18 @@ export function useMultiSync(spaceId: string) {
         const retry = setTimeout(() => {
           if (mountedRef.current) pullAll()
         }, 15_000)
-        return () => clearTimeout(retry)
       }
     }
+
+    const fallbackInterval = setInterval(() => {
+      if (document.hidden || !mountedRef.current) return
+      pullAll()
+    }, 60_000)
 
     return () => {
       eventSource.close()
       eventSourceRef.current = null
+      clearInterval(fallbackInterval)
     }
   }, [spaceId])
 }
