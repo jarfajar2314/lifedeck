@@ -152,10 +152,19 @@
   * {
     @apply border-border outline-ring/50;
   }
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring/70;
+  }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+  /* Ensure 48px minimum touch targets on mobile */
+  @media (pointer: coarse) {
+    button, a, [role="button"], input, select, textarea {
+      min-height: 48px;
+    }
   }
 }

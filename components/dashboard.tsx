@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { TaskList } from "@/components/task-list"
@@ -12,16 +12,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
-import { LogOut, Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
+import { LogOut, Wallet, ListChecks, StickyNote, Plus, Wifi, WifiOff } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { toast } from "sonner"
-import { useState } from "react"
 
 export function Dashboard() {
   const { user, signOut } = useAuth()
   const { mode, accent, setMode, setAccent } = useTheme()
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [keypadOpen, setKeypadOpen] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [signingOut, setSigningOut] = useState(false)
 
   const { add: addTransaction } = useTransactions(currentId)
   const { add: addTask } = useTasks(currentId)
@@ -48,8 +49,25 @@ export function Dashboard() {
     setKeypadOpen(false)
   }, [currentId, user?.id, addTransaction])
 
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await signOut()
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <p className="text-muted-foreground animate-pulse">Signing out...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-dvh flex-col pb-24">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:shadow-lg">
+        Skip to main content
+      </a>
+
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -67,67 +85,79 @@ export function Dashboard() {
             <button
               onClick={() => setMode(mode === "dark" ? "light" : mode === "light" ? "oled" : "dark")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-xs text-muted-foreground hover:bg-secondary"
-              aria-label="Toggle theme"
+              aria-label={`Theme: ${mode}`}
+              title={`Theme: ${mode}`}
             >
               {mode === "oled" ? "◆" : mode === "dark" ? "◐" : "☀"}
             </button>
             <button
               onClick={() => setAccent(accent === "emerald" ? "violet" : accent === "violet" ? "cyan" : "emerald")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-xs text-muted-foreground hover:bg-secondary"
-              aria-label="Switch accent"
+              aria-label={`Accent: ${accent}`}
+              title={`Accent: ${accent}`}
               style={{ color: `var(--accent-color)` }}
             >
               ●
             </button>
-            {user && (
-              <button onClick={signOut} className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-destructive" aria-label="Sign out">
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-destructive"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Wallet className="h-4 w-4" /> Money
-            </CardTitle>
-            <button
-              onClick={() => setKeypadOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
-              aria-label="Add expense"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            <TransactionList spaceId={currentId} limit={5} />
-          </CardContent>
-        </Card>
+      <main id="main-content" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-4">
+        <section aria-labelledby="money-heading">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle id="money-heading" className="flex items-center gap-2 text-base">
+                <Wallet className="h-4 w-4" aria-hidden="true" /> Money
+              </CardTitle>
+              <button
+                onClick={() => setKeypadOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
+                aria-label="Add expense"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <TransactionList spaceId={currentId} limit={5} />
+            </CardContent>
+          </Card>
+        </section>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ListChecks className="h-4 w-4" /> Tasks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TaskList spaceId={currentId} limit={8} />
-          </CardContent>
-        </Card>
+        <section aria-labelledby="tasks-heading">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle id="tasks-heading" className="flex items-center gap-2 text-base">
+                <ListChecks className="h-4 w-4" aria-hidden="true" /> Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TaskList spaceId={currentId} limit={8} />
+            </CardContent>
+          </Card>
+        </section>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <StickyNote className="h-4 w-4" /> Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <NoteList spaceId={currentId} limit={5} />
-          </CardContent>
-        </Card>
+        <section aria-labelledby="notes-heading">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle id="notes-heading" className="flex items-center gap-2 text-base">
+                <StickyNote className="h-4 w-4" aria-hidden="true" /> Notes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NoteList spaceId={currentId} limit={5} />
+            </CardContent>
+          </Card>
+        </section>
       </main>
 
       <CommandBar
@@ -137,7 +167,7 @@ export function Dashboard() {
       />
 
       <Drawer open={keypadOpen} onOpenChange={setKeypadOpen}>
-        <DrawerContent>
+        <DrawerContent aria-label="Expense keypad">
           <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} />
         </DrawerContent>
       </Drawer>

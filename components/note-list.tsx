@@ -32,20 +32,12 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
     setShowInput(false)
   }
 
-  const handleTogglePin = async (id: string) => {
-    await togglePin(id)
-    toast("Note updated")
+  if (loading) {
+    return <div className="p-4 text-sm text-muted-foreground" role="status" aria-live="polite">Loading notes...</div>
   }
-
-  const handleRemove = async (id: string) => {
-    await remove(id)
-    toast("Note deleted")
-  }
-
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading notes...</div>
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" role="region" aria-label="Notes">
       {showInput && (
         <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
           <textarea
@@ -54,6 +46,7 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
             placeholder="Write a note..."
             className="min-h-[80px] resize-none bg-transparent text-sm outline-none"
             rows={3}
+            aria-label="Note content"
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} className="flex-1">Save</Button>
@@ -64,13 +57,8 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
         </div>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowInput(true)}
-        className="gap-2"
-      >
-        <Plus className="h-3.5 w-3.5" /> Quick Note
+      <Button variant="outline" size="sm" onClick={() => setShowInput(true)} className="gap-2" aria-label="Create quick note">
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Quick Note
       </Button>
 
       {!showInput && displayed.length === 0 && (
@@ -78,41 +66,40 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
       )}
 
       {displayed.map((note) => (
-        <div
+        <article
           key={note.id}
           className={cn(
             "rounded-xl border border-border p-3 transition-colors",
             note.isPinned && "border-accent-color/30 bg-accent-color/5"
           )}
+          aria-label={note.isPinned ? "Pinned note" : "Note"}
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="flex-1 whitespace-pre-wrap text-sm leading-relaxed">
-              {note.content}
-            </p>
+            <p className="flex-1 whitespace-pre-wrap text-sm leading-relaxed">{note.content}</p>
             <div className="flex shrink-0 gap-1">
               <button
-                onClick={() => handleTogglePin(note.id)}
+                onClick={() => { togglePin(note.id); toast(note.isPinned ? "Note unpinned" : "Note pinned") }}
                 className={cn(
                   "text-muted-foreground/50 hover:text-accent-color",
                   note.isPinned && "text-accent-color"
                 )}
-                aria-label={note.isPinned ? "Unpin" : "Pin"}
+                aria-label={note.isPinned ? "Unpin note" : "Pin note"}
               >
-                {note.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                {note.isPinned ? <PinOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Pin className="h-3.5 w-3.5" aria-hidden="true" />}
               </button>
               <button
-                onClick={() => handleRemove(note.id)}
+                onClick={() => { remove(note.id); toast("Note deleted") }}
                 className="text-muted-foreground/50 hover:text-destructive"
                 aria-label="Delete note"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>
-          <span className="mt-1 block text-[10px] text-muted-foreground">
+          <time className="mt-1 block text-[10px] text-muted-foreground" dateTime={new Date(note.createdAt).toISOString()}>
             {new Date(note.createdAt).toLocaleDateString()}
-          </span>
-        </div>
+          </time>
+        </article>
       ))}
     </div>
   )
