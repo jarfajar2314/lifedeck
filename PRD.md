@@ -2,9 +2,9 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 4.0  
+**Document Version:** 5.1  
 **Project Name:** LifeDeck  
-**Status:** Approved for Implementation  
+**Status:** In Development  
 **Date:** July 23, 2026  
 
 ---
@@ -22,7 +22,9 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 ### 1.3 Key Objectives & Metrics
 - **Universal Capture Speed:** Average time to log an expense, task, or note is < 3 seconds.
 - **Zero Network Dependency:** 100% offline functionality for local creation via IndexedDB with automatic cloud sync.
-- **Frictionless Household Sync:** Multi-user collaboration for couples/families with < 500ms real-time UI updates via Supabase Realtime.
+- **Frictionless Household Sync:** Multi-user collaboration for couples/families with < 3s cross-device latency via SSE + PostgreSQL LISTEN/NOTIFY, with 10s polling fallback.
+- **Payment Source Routing:** Natural language account parsing (`25k lunch @gopay`) resolves tagged accounts to tracked payment sources.
+- **Self-Service Settings:** In-app user menu for theme, currency, default payment account, and space management.
 - **Graph-Powered AI Insights (Dev Tooling):** Graphify maps the codebase AST, routes, and schemas so AI coding assistants can navigate the full project with zero context waste.
 - **Email & Password Authentication:** Standard sign-up and sign-in with email and password.
 - **High Accessibility Standards:** 100% WCAG 2.1 AA compliance and mobile thumb-zone ergonomics.
@@ -42,6 +44,8 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 | **Tasks** | Busy User | Quickly add and swipe off daily to-dos | I can keep my day organized without heavy project management bloat. |
 | **Notes** | Thinker | Jot down quick micro-notes or scratchpad thoughts | I don't lose fleeting ideas or important reference snippets. |
 | **System** | Offline User | Capture data while offline in remote areas | The app saves locally immediately and syncs to Supabase when reconnected. |
+| **Account Tagging** | Finance User | Type `25k lunch @gopay` to attach a payment source | Transactions are automatically categorized by account without extra taps. |
+| **Settings** | User | Open a user menu to adjust theme, currency, and default payment | I can tailor the app to my preferences without leaving the dashboard. |
 
 ---
 
@@ -99,6 +103,8 @@ The bottom sticky bar in LifeDeck acts as a universal router:
 
 1. **Expense Rule:** If the input starts with a number or currency shorthand (e.g., `25k`, `150k`, `$15`), route to Transactions.
    - *Example:* `25k lunch @gopay` ➔ Amount: 25,000, Category: Food, Account: Gopay.
+   - The `@account` tag is resolved to an `accountId` via Dexie lookup scoped to the current space.
+   - If no `@` tag is provided, the user's default account for that space (from `space_members.default_account_id`) is used.
 2. **Task Rule:** If the input starts with `todo`, `task`, or `[]`, route to Tasks.
    - *Example:* `todo Buy milk tomorrow` ➔ Task: Buy milk, Due: Tomorrow.
 3. **Note Rule:** If the input starts with `note` or is plain text without monetary values, route to Quick Notes.
@@ -139,9 +145,19 @@ Data within LifeDeck is scope-bound to a Space:
 2. **Accept Invite:** Partner enters code or opens link to instantly join `space_members`.
 3. **Creator Attribution:** Every shared transaction, task, or note displays a small avatar/badge indicating who created or modified the record.
 
-### 6.3 Real-Time Sync Infrastructure
-- Powered by Supabase Realtime (WebSockets).
-- When User A records an entry or completes a task, a WebSocket broadcast updates User B's UI instantly without needing pull-to-refresh.
+### 6.4 User Settings & Preferences
+- **User Menu:** Avatar/name in the dashboard header opens a bottom-sheet settings drawer.
+- **Theme & Accent:** Dark/Light/OLED mode + Emerald/Violet/Cyan accent, persisted to `profiles.theme_preference` and `profiles.accent_color` (synced across devices).
+- **Currency:** Default currency per user stored in `profiles.currency`.
+- **Default Payment Account:** Per-space default account stored in `space_members.default_account_id`.
+  - When a user creates an expense without an `@account` tag, it assigns to this default account.
+  - The `default_account_id` column references `accounts(id)` and is nullable.
+
+### 6.3 Cross-Device Sync Infrastructure
+- Offline-first: writes go to local Dexie.js (IndexedDB) instantly, then sync to PostgreSQL via `/api/sync`.
+- Sync Queue: operations enqueue globally, flush after 2s debounce (or immediately on sign-out).
+- True realtime: after `/api/sync` writes to PostgreSQL, it executes `NOTIFY sync_update, payload`. A shared SSE manager (`lib/sse-manager.ts`) maintains a persistent pg `LISTEN` connection and pushes events to connected browser clients.
+- Fallback: `useMultiSync` polls `pullAll()` every 10 seconds (tab-visibility aware) if SSE disconnects.
 
 ---
 
@@ -195,8 +211,8 @@ Data within LifeDeck is scope-bound to a Space:
 
 ```sql
 -- 1. Profiles Table  
-CREATE TABLE public.profiles (  
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,  
+CREATE TABLE IF NOT EXISTS public.profiles (  
+  id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,  
   display_name TEXT,  
   avatar_url TEXT,  
   currency TEXT NOT NULL DEFAULT 'IDR',  
@@ -206,64 +222,67 @@ CREATE TABLE public.profiles (
   created_at TIMESTAMPTZ DEFAULT NOW(),  
   updated_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 2. Spaces Table (Collaboration Units)  
-CREATE TABLE public.spaces (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  name TEXT NOT NULL, -- e.g., 'Personal', 'Home & Family'  
-  invite_code TEXT UNIQUE DEFAULT UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 8)),  
+CREATE TABLE IF NOT EXISTS public.spaces (  
+  id TEXT PRIMARY KEY,  
+  name TEXT NOT NULL,  
+  invite_code TEXT NOT NULL,  
+  personal BOOLEAN NOT NULL DEFAULT FALSE,  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 3. Space Memberships  
-CREATE TABLE public.space_members (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,  
+CREATE TABLE IF NOT EXISTS public.space_members (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,  
   role TEXT CHECK (role IN ('owner', 'member')) DEFAULT 'member',  
+  default_account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,  
   joined_at TIMESTAMPTZ DEFAULT NOW(),  
+  created_at TIMESTAMPTZ DEFAULT NOW(),  
   UNIQUE(space_id, user_id)  
 );  
-  
+
 -- 4. Payment Accounts Table  
-CREATE TABLE public.accounts (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+CREATE TABLE IF NOT EXISTS public.accounts (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
   name TEXT NOT NULL,  
   is_default BOOLEAN DEFAULT FALSE,  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 5. Categories Table  
-CREATE TABLE public.categories (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+CREATE TABLE IF NOT EXISTS public.categories (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
   name TEXT NOT NULL,  
   icon TEXT,  
   color TEXT,  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 6. Transactions Table  
-CREATE TABLE public.transactions (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
-  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,  
-  account_id UUID REFERENCES public.accounts(id) ON DELETE SET NULL,  
-  category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,  
+CREATE TABLE IF NOT EXISTS public.transactions (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+  created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,  
+  account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,  
+  category_id TEXT REFERENCES public.categories(id) ON DELETE SET NULL,  
   amount NUMERIC(12, 2) NOT NULL,  
   type TEXT NOT NULL CHECK (type IN ('expense', 'income', 'transfer')),  
   note TEXT,  
   logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 7. Tasks Table  
-CREATE TABLE public.tasks (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
-  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,  
-  assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,  
+CREATE TABLE IF NOT EXISTS public.tasks (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+  created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,  
+  assigned_to TEXT REFERENCES "user"(id) ON DELETE SET NULL,  
   title TEXT NOT NULL,  
   is_completed BOOLEAN DEFAULT FALSE,  
   priority TEXT CHECK (priority IN ('low', 'medium', 'high')) DEFAULT 'medium',  
@@ -271,56 +290,96 @@ CREATE TABLE public.tasks (
   completed_at TIMESTAMPTZ,  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- 8. Notes Table  
-CREATE TABLE public.notes (  
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  
-  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
-  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,  
+CREATE TABLE IF NOT EXISTS public.notes (  
+  id TEXT PRIMARY KEY,  
+  space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
+  created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,  
   content TEXT NOT NULL,  
   tags TEXT[],  
   is_pinned BOOLEAN DEFAULT FALSE,  
   created_at TIMESTAMPTZ DEFAULT NOW(),  
   updated_at TIMESTAMPTZ DEFAULT NOW()  
 );  
-  
+
 -- Row-Level Security (RLS) Policies  
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;  
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;  
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;  
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;  
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;  
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;  
+ALTER TABLE public.spaces ENABLE ROW LEVEL SECURITY;  
+ALTER TABLE public.space_members ENABLE ROW LEVEL SECURITY;  
 
 CREATE POLICY "Users can access transactions in joined spaces" ON public.transactions  
-  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()));  
+  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
 
 CREATE POLICY "Users can access tasks in joined spaces" ON public.tasks  
-  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()));  
+  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
 
 CREATE POLICY "Users can access notes in joined spaces" ON public.notes  
-  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()));
+  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
+
+CREATE POLICY "Users can access accounts in joined spaces" ON public.accounts  
+  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
+
+CREATE POLICY "Users can access categories in joined spaces" ON public.categories  
+  FOR ALL USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
+
+CREATE POLICY "Users can view spaces they belong to" ON public.spaces  
+  FOR SELECT USING (id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));  
+
+CREATE POLICY "Users can view members of their spaces" ON public.space_members  
+  FOR SELECT USING (space_id IN (SELECT space_id FROM public.space_members WHERE user_id = auth.uid()::TEXT));
 ```
 
 ---
 
 ## 9. Implementation Roadmap
 
-- **Phase 1: Architecture, Theme Engine & Graphify Dev Setup (Week 1)**
-  - Initialize Next.js, Tailwind CSS, Shadcn UI
-  - Apply Leonxlnx/taste-skill UI guidelines & theme provider
-  - Install Graphify skill (`graphify install --project`) for AI coding
-  - Better Auth setup with email & password (sign-up + sign-in)
-  - Dexie.js local tables setup for Offline-First capability
+### ✅ Phase 1: Architecture, Theme Engine & Graphify Dev Setup
+- ✅ Initialize Next.js 16 + Tailwind CSS v4 + Shadcn UI (base-nova)
+- ✅ Apply Leonxlnx/taste-skill UI guidelines & theme provider (Dark/Light/OLED, Emerald/Violet/Cyan accents)
+- ✅ Install Graphify skill for AI coding assistance
+- ✅ Better Auth v1.6.24 setup with email & password (sign-up + sign-in, PostgreSQL via pg.Pool)
+- ✅ Dexie.js local tables setup for Offline-First capability
+- ✅ Serwist PWA integration (disabled in dev mode)
 
-- **Phase 2: Universal Parser & UI Ergonomics (Week 2)**
-  - Build Universal Command Input parser logic
-  - Develop Numeric Touch Keypad & Category Bar
-  - Develop Task list & Quick Notes UI components with haptic feedback
+### ✅ Phase 2: Universal Parser & UI Ergonomics
+- ✅ Universal Command Input (parses expense/task/note prefixes)
+- ✅ Numeric Touch Keypad (ExpenseKeypad in bottom drawer)
+- ✅ Task list with toggle/delete
+- ✅ Quick Notes with pin/delete
+- ✅ Transaction list (view, edit, delete via bottom sheet)
+- ✅ Space Selector (create, join, switch spaces)
+- ✅ Custom numeric keypad for expense logging
 
-- **Phase 3: Collaboration & Supabase Sync (Week 3)**
-  - Apply Postgres schema with Spaces & RLS Policies
-  - Implement Space Switcher & QR / Code Invite flow
-  - Wire up Supabase Realtime subscriptions for multi-user sync
+### ✅ Phase 3: Collaboration & Supabase Sync
+- ✅ PostgreSQL schema applied (profiles, spaces, space_members, accounts, categories, transactions, tasks, notes)
+- ✅ Better Auth tables (user, session, account, verification)
+- ✅ RLS policies on all tables (auth.uid()::TEXT)
+- ✅ Space Switcher & invite code flow
+- ✅ Sync layer: offline queue (2s debounce flush), camelCase↔snake_case mapping, pull on auth change
+- ✅ Cross-device sync: periodic polling (10s interval, respects Page Visibility)
+- ✅ Supabase Realtime integration (broadcast channel for live sync notifications)
 
-- **Phase 4: Dashboard Integration & Polish (Week 4)**
-  - Assemble LifeDeck Dashboard view (Money, Tasks, Notes widgets)
-  - Accessibility (a11y) audit & theme contrast verification
-  - Performance verification & deployment on Vercel
+### ✅ Phase 4: Dashboard Integration & Polish
+- ✅ LifeDeck Dashboard view (Money, Tasks, Notes cards with totals)
+- ✅ Accessibility (a11y) audit — WCAG 2.1 AA, ARIA labels, skip-to-content, focus management
+- ✅ Theme contrast verification across all four themes
+- ✅ Mobile-first responsive layout with thumb-zone targets
+
+### 🔄 Phase 5: Payment Parsing, User Settings & True Realtime
+
+**Status:** In Progress
+
+- ✅ **Payment Source Parser** — `25k milk @gopay` resolves `@gopay` to an `accountId` via Dexie lookup; ExpenseKeypad gets a payment source selector dropdown; falls back to user's default account if no `@` tag.
+- ✅ **User Menu & Settings Drawer** — Bottom-sheet triggered by avatar/name in header; profile info, theme/accent toggles, currency selector, default account per space, space invite settings, sign out.
+- ✅ **True Realtime via SSE + PostgreSQL LISTEN/NOTIFY** — Sync API emits `NOTIFY` after writes; shared SSE manager pushes events to connected browser clients; polling remains as 10s fallback.
+
+### 📋 Future Considerations
+- Edge case handling for sync conflicts
+- Performance optimization for large datasets
+- Deployment preparation (Vercel / custom domain)
