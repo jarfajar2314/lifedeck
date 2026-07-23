@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { authClient } from "@/lib/auth-client"
+import db from "@/lib/db"
 import type { Session, User } from "better-auth"
 
 type AuthContextValue = {
@@ -34,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { fetchSession() }, [])
 
   const signOut = async () => {
+    try { await Promise.all(db.tables.map((t) => t.clear())) } catch {}
     await authClient.signOut()
     setUser(null)
     setSession(null)
