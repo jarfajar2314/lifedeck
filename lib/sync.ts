@@ -1,4 +1,5 @@
 import db from "@/lib/db"
+import { supabase } from "@/lib/supabase"
 
 export type SyncOp = "upsert" | "delete"
 
@@ -98,9 +99,26 @@ export async function pushOperations(ops: SyncOperation[]): Promise<void> {
     }
     if (!res.ok) throw new Error(`Sync push failed: ${res.status}`)
     await res.json()
+    notifyDevices(ops)
   } catch (err) {
     console.warn("[sync] push failed, will retry:", err)
     throw err
+  }
+}
+
+function notifyDevices(ops: SyncOperation[]): void {
+  try {
+    if (!supabase) return
+    const tables = [...new Set(ops.map((o) => o.table))]
+    const channel = supabase.channel("cross-device-sync")
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({ type: "broadcast", event: "sync", payload: { tables } })
+      }
+      setTimeout(() => supabase.removeChannel(channel), 2000)
+    })
+  } catch {
+    // broadcast is best-effort
   }
 }
 
