@@ -72,7 +72,15 @@ export function useTasks(spaceId: string) {
     enqueue({ table: "tasks", op: "delete", recordId: id })
   }
 
-  return { items: items ?? [], loading: items === undefined, add, toggle, remove }
+  const update = async (id: string, updates: Partial<Omit<Task, "id" | "spaceId" | "createdAt">>) => {
+    const existing = await db.tasks.get(id)
+    if (!existing) return
+    const merged = { ...existing, ...updates }
+    await db.tasks.put(merged)
+    enqueue({ table: "tasks", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+  }
+
+  return { items: items ?? [], loading: items === undefined, add, toggle, remove, update }
 }
 
 export function useNotes(spaceId: string) {
@@ -106,7 +114,15 @@ export function useNotes(spaceId: string) {
     enqueue({ table: "notes", op: "delete", recordId: id })
   }
 
-  return { items: items ?? [], loading: items === undefined, add, togglePin, remove }
+  const update = async (id: string, updates: Partial<Omit<Note, "id" | "spaceId" | "createdAt">>) => {
+    const existing = await db.notes.get(id)
+    if (!existing) return
+    const merged = { ...existing, ...updates, updatedAt: new Date() }
+    await db.notes.put(merged)
+    enqueue({ table: "notes", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+  }
+
+  return { items: items ?? [], loading: items === undefined, add, togglePin, remove, update }
 }
 
 export function useCategories(spaceId: string) {
