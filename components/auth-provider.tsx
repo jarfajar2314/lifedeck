@@ -2,8 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { authClient } from "@/lib/auth-client"
-import db from "@/lib/db"
-import { pullAll, flushNow, enqueue } from "@/lib/sync"
 import type { Session, User } from "better-auth"
 
 type AuthContextValue = {
@@ -35,34 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { fetchSession() }, [])
 
-  useEffect(() => {
-    if (!user) return
-    ;(async () => {
-      await Promise.all(db.tables.map((t) => t.clear()))
-
-      const existing = await db.profiles.get(user.id)
-      if (!existing) {
-        const profile = {
-          id: user.id,
-          displayName: user.name || undefined,
-          currency: "IDR" as const,
-          monthlyBudget: 0,
-          themePreference: "dark" as const,
-          accentColor: "emerald" as const,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-        await db.profiles.put(profile)
-        enqueue({ table: "profiles", op: "upsert", data: profile as unknown as Record<string, unknown>, recordId: user.id })
-      }
-
-      await pullAll()
-    })()
-  }, [user?.id])
-
   const signOut = async () => {
-    await flushNow()
-    await Promise.all(db.tables.map((t) => t.clear()))
     await authClient.signOut()
     setUser(null)
     setSession(null)

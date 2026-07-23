@@ -12,9 +12,7 @@ import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db"
-import db from "@/lib/db"
 import { useSpaces } from "@/hooks/use-spaces"
-import { useMultiSync } from "@/hooks/use-realtime"
 import { Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -25,17 +23,14 @@ export function Dashboard() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
 
-  useMultiSync(currentId)
-
   const accounts = useAccounts(currentId)
   const { add: addTransaction } = useTransactions(currentId)
   const { add: addTask } = useTasks(currentId)
   const { add: addNote } = useNotes(currentId)
 
   const resolveAccountId = useCallback(async (accountName: string): Promise<string | undefined> => {
-    const account = await db.accounts.where("name").equals(accountName).first()
-    return account?.id
-  }, [])
+    return accounts.find((a) => a.name === accountName)?.id
+  }, [accounts])
 
   const handleExpense = useCallback(async (amount: number, note?: string, account?: string) => {
     const accountId = account ? await resolveAccountId(account) : undefined

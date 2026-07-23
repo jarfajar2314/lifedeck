@@ -1,13 +1,31 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import db, { type Space, type SpaceMember } from "@/lib/db"
+import type { Space, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
-import { enqueue, enqueueMany } from "@/lib/sync"
+
+const API = "/api/data"
 
 const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
 
 export type SpaceWithRole = Space & { role: "owner" | "member" }
+
+async function list<T>(table: string): Promise<T[]> {
+  const res = await fetch(`${API}?table=${table}`, { credentials: "include" })
+  if (!res.ok) throw new Error(`${table} list failed: ${res.status}`)
+  const json = await res.json()
+  return json.data as T[]
+}
+
+async function mutate(table: string, op: string, data?: Record<string, unknown>, id?: string): Promise<void> {
+  const res = await fetch(API, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, op, data, id }),
+  })
+  if (!res.ok) throw new Error(`${table} ${op} failed: ${res.status}`)
+}
 
 export function useSpaces(userId?: string) {
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
@@ -15,37 +33,35 @@ export function useSpaces(userId?: string) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const allSpaces = await db.spaces.toArray()
-    const members = await db.spaceMembers.toArray()
-
-    const enriched: SpaceWithRole[] = allSpaces.map((s) => ({
-      ...s,
-      role: (members.find((m) => m.spaceId === s.id)?.role ?? "member") as "owner" | "member",
-    }))
-
-    setSpaces(enriched)
-    setLoading(false)
+    try {
+      const [allSpaces, members] = await Promise.all([list<Space>("spaces"), list<SpaceMember>("spaceMembers")])
+      const enriched: SpaceWithRole[] = allSpaces.map((s) => ({
+        ...s,
+        role: (members.find((m) => m.spaceId === s.id)?.role ?? "member") as "owner" | "member",
+      }))
+      setSpaces(enriched)
+    } catch (err) {
+      console.error("[spaces] refresh error:", err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
 
   const ensurePersonalSpace = useCallback(async () => {
-    const ops: { table: string; op: "upsert" | "delete"; data?: Record<string, unknown>; recordId?: string }[] = []
-    const existing = await db.spaces.get(PERSONAL_SPACE_ID)
+    const allSpaces = await list<Space>("spaces")
+    const existing = allSpaces.find((s) => s.id === PERSONAL_SPACE_ID)
     if (!existing) {
-      const data = { id: PERSONAL_SPACE_ID, name: "Personal", inviteCode: "", createdAt: new Date() }
-      await db.spaces.put(data)
-      ops.push({ table: "spaces", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: PERSONAL_SPACE_ID })
+      await mutate("spaces", "add", { id: PERSONAL_SPACE_ID, name: "Personal", inviteCode: "", createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     }
     if (userId) {
-      const isMember = await db.spaceMembers.where({ spaceId: PERSONAL_SPACE_ID, userId }).first()
+      const members = await list<SpaceMember>("spaceMembers")
+      const isMember = members.find((m) => m.spaceId === PERSONAL_SPACE_ID && m.userId === userId)
       if (!isMember) {
-        const data = { id: uid(), spaceId: PERSONAL_SPACE_ID, userId, role: "owner" as const, joinedAt: new Date() }
-        await db.spaceMembers.put(data)
-        ops.push({ table: "spaceMembers", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: data.id })
+        await mutate("spaceMembers", "add", { id: uid(), spaceId: PERSONAL_SPACE_ID, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
       }
     }
-    if (ops.length > 0) enqueueMany(ops)
     await refresh()
   }, [userId, refresh])
 
@@ -64,33 +80,24 @@ export function useSpaces(userId?: string) {
   const createSpace = async (name: string) => {
     const id = uid()
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const spaceData = { id, name, inviteCode, createdAt: new Date() }
-    await db.spaces.add(spaceData)
-    const ops: { table: string; op: "upsert"; data: Record<string, unknown>; recordId: string }[] = [
-      { table: "spaces", op: "upsert", data: spaceData as unknown as Record<string, unknown>, recordId: id },
-    ]
+    await mutate("spaces", "add", { id, name, inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     if (userId) {
-      const memberData = { id: uid(), spaceId: id, userId, role: "owner" as const, joinedAt: new Date() }
-      await db.spaceMembers.add(memberData)
-      ops.push({ table: "spaceMembers", op: "upsert", data: memberData as unknown as Record<string, unknown>, recordId: memberData.id })
+      await mutate("spaceMembers", "add", { id: uid(), spaceId: id, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     }
-    enqueueMany(ops)
     await refresh()
     setCurrentId(id)
     return { id, inviteCode }
   }
 
   const joinSpace = async (inviteCode: string) => {
-    const space = await db.spaces.where("inviteCode").equals(inviteCode.toUpperCase()).first()
+    const allSpaces = await list<Space>("spaces")
+    const space = allSpaces.find((s) => s.inviteCode === inviteCode.toUpperCase())
     if (!space) return null
     if (userId) {
-      const existing = await db.spaceMembers
-        .where({ spaceId: space.id, userId })
-        .first()
+      const members = await list<SpaceMember>("spaceMembers")
+      const existing = members.find((m) => m.spaceId === space.id && m.userId === userId)
       if (!existing) {
-        const data = { id: uid(), spaceId: space.id, userId, role: "member" as const, joinedAt: new Date() }
-        await db.spaceMembers.add(data)
-        enqueue({ table: "spaceMembers", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: data.id })
+        await mutate("spaceMembers", "add", { id: uid(), spaceId: space.id, userId, role: "member", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
       }
     }
     await refresh()
@@ -100,9 +107,7 @@ export function useSpaces(userId?: string) {
 
   const regenerateInviteCode = async (spaceId: string) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
-    await db.spaces.update(spaceId, { inviteCode: code })
-    const space = await db.spaces.get(spaceId)
-    if (space) enqueue({ table: "spaces", op: "upsert", data: space as unknown as Record<string, unknown>, recordId: spaceId })
+    await mutate("spaces", "update", { id: spaceId, inviteCode: code } as unknown as Record<string, unknown>)
     await refresh()
     return code
   }

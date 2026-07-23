@@ -1,165 +1,179 @@
 "use client"
 
-import { useCallback } from "react"
-import { useLiveQuery } from "dexie-react-hooks"
-import db, { type Transaction, type Task, type Note, type Category, type Account, type Profile, type SpaceMember } from "@/lib/db"
+import { useState, useEffect, useCallback } from "react"
+import type { Transaction, Task, Note, Category, Account, Profile, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
-import { enqueue } from "@/lib/sync"
+
+const API = "/api/data"
+
+async function list<T>(table: string, spaceId?: string): Promise<T[]> {
+  const params = new URLSearchParams({ table })
+  if (spaceId) params.set("spaceId", spaceId)
+  const res = await fetch(`${API}?${params}`, { credentials: "include" })
+  if (!res.ok) throw new Error(`${table} list failed: ${res.status}`)
+  const json = await res.json()
+  return json.data as T[]
+}
+
+async function mutate(table: string, op: string, data?: Record<string, unknown>, id?: string): Promise<void> {
+  const res = await fetch(API, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, op, data, id }),
+  })
+  if (!res.ok) throw new Error(`${table} ${op} failed: ${res.status}`)
+}
+
+function useList<T>(table: string, spaceId: string | undefined) {
+  const [items, setItems] = useState<T[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await list<T>(table, spaceId)
+      setItems(data)
+    } catch (err) {
+      console.error(`[${table}] list error:`, err)
+    } finally {
+      setLoading(false)
+    }
+  }, [table, spaceId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  return { items, loading, refresh }
+}
 
 export function useTransactions(spaceId: string) {
-  const items = useLiveQuery(
-    () => db.transactions
-      .where("spaceId")
-      .equals(spaceId)
-      .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime()))
-  )
+  const { items, loading, refresh } = useList<Transaction>("transactions", spaceId)
 
   const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
     const id = uid()
-    const data = { ...tx, id, createdAt: new Date() }
-    await db.transactions.add(data)
-    enqueue({ table: "transactions", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
+    await mutate("transactions", "add", { ...tx, id, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    await refresh()
     return id
   }
 
   const update = async (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => {
-    const existing = await db.transactions.get(id)
+    const existing = items.find((i) => i.id === id)
     if (!existing) return
-    const merged = { ...existing, ...updates }
-    await db.transactions.put(merged)
-    enqueue({ table: "transactions", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+    await mutate("transactions", "update", { ...existing, ...updates } as unknown as Record<string, unknown>)
+    await refresh()
   }
 
   const remove = async (id: string) => {
-    await db.transactions.delete(id)
-    enqueue({ table: "transactions", op: "delete", recordId: id })
+    await mutate("transactions", "delete", undefined, id)
+    await refresh()
   }
 
-  return { items: items ?? [], loading: items === undefined, add, update, remove }
+  const sorted = [...items].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
+  return { items: sorted, loading, add, update, remove }
 }
 
 export function useTasks(spaceId: string) {
-  const items = useLiveQuery(
-    () => db.tasks
-      .where("spaceId")
-      .equals(spaceId)
-      .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
-  )
+  const { items, loading, refresh } = useList<Task>("tasks", spaceId)
 
   const add = async (task: Omit<Task, "id" | "createdAt">) => {
     const id = uid()
-    const data = { ...task, id, createdAt: new Date() }
-    await db.tasks.add(data)
-    enqueue({ table: "tasks", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
+    await mutate("tasks", "add", { ...task, id, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    await refresh()
     return id
   }
 
   const toggle = async (id: string) => {
-    const task = await db.tasks.get(id)
+    const task = items.find((i) => i.id === id)
     if (!task) return
-    const updates = {
-      isCompleted: !task.isCompleted,
-      completedAt: !task.isCompleted ? new Date() : undefined,
-    }
-    await db.tasks.update(id, updates)
-    enqueue({ table: "tasks", op: "upsert", data: { ...task, ...updates } as unknown as Record<string, unknown>, recordId: id })
+    const updates = { isCompleted: !task.isCompleted, completedAt: !task.isCompleted ? new Date().toISOString() : undefined }
+    await mutate("tasks", "update", { ...task, ...updates } as unknown as Record<string, unknown>)
+    await refresh()
   }
 
   const remove = async (id: string) => {
-    await db.tasks.delete(id)
-    enqueue({ table: "tasks", op: "delete", recordId: id })
+    await mutate("tasks", "delete", undefined, id)
+    await refresh()
   }
 
   const update = async (id: string, updates: Partial<Omit<Task, "id" | "spaceId" | "createdAt">>) => {
-    const existing = await db.tasks.get(id)
+    const existing = items.find((i) => i.id === id)
     if (!existing) return
-    const merged = { ...existing, ...updates }
-    await db.tasks.put(merged)
-    enqueue({ table: "tasks", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+    await mutate("tasks", "update", { ...existing, ...updates } as unknown as Record<string, unknown>)
+    await refresh()
   }
 
-  return { items: items ?? [], loading: items === undefined, add, toggle, remove, update }
+  const sorted = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return { items: sorted, loading, add, toggle, remove, update }
 }
 
 export function useNotes(spaceId: string) {
-  const items = useLiveQuery(
-    () => db.notes
-      .where("spaceId")
-      .equals(spaceId)
-      .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
-  )
+  const { items, loading, refresh } = useList<Note>("notes", spaceId)
 
   const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
     const id = uid()
-    const now = new Date()
-    const data = { ...note, id, createdAt: now, updatedAt: now }
-    await db.notes.add(data)
-    enqueue({ table: "notes", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
+    const now = new Date().toISOString()
+    await mutate("notes", "add", { ...note, id, createdAt: now, updatedAt: now } as unknown as Record<string, unknown>)
+    await refresh()
     return id
   }
 
   const togglePin = async (id: string) => {
-    const note = await db.notes.get(id)
+    const note = items.find((i) => i.id === id)
     if (!note) return
-    const updates = { isPinned: !note.isPinned, updatedAt: new Date() }
-    await db.notes.update(id, updates)
-    enqueue({ table: "notes", op: "upsert", data: { ...note, ...updates } as unknown as Record<string, unknown>, recordId: id })
+    await mutate("notes", "update", { ...note, isPinned: !note.isPinned, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    await refresh()
   }
 
   const remove = async (id: string) => {
-    await db.notes.delete(id)
-    enqueue({ table: "notes", op: "delete", recordId: id })
+    await mutate("notes", "delete", undefined, id)
+    await refresh()
   }
 
   const update = async (id: string, updates: Partial<Omit<Note, "id" | "spaceId" | "createdAt">>) => {
-    const existing = await db.notes.get(id)
+    const existing = items.find((i) => i.id === id)
     if (!existing) return
-    const merged = { ...existing, ...updates, updatedAt: new Date() }
-    await db.notes.put(merged)
-    enqueue({ table: "notes", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+    await mutate("notes", "update", { ...existing, ...updates, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    await refresh()
   }
 
-  return { items: items ?? [], loading: items === undefined, add, togglePin, remove, update }
+  const sorted = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return { items: sorted, loading, add, togglePin, remove, update }
 }
 
 export function useCategories(spaceId: string) {
-  return useLiveQuery(
-    () => db.categories.where("spaceId").equals(spaceId).toArray(),
-    [spaceId]
-  ) ?? []
+  const [items, setItems] = useState<Category[]>([])
+  useEffect(() => {
+    list<Category>("categories", spaceId).then(setItems).catch(() => {})
+  }, [spaceId])
+  return items
 }
 
 export function useAccounts(spaceId: string) {
-  return useLiveQuery(
-    () => db.accounts.where("spaceId").equals(spaceId).toArray(),
-    [spaceId]
-  ) ?? []
+  const [items, setItems] = useState<Account[]>([])
+  useEffect(() => {
+    list<Account>("accounts", spaceId).then(setItems).catch(() => {})
+  }, [spaceId])
+  return items
 }
 
 export function useProfile(userId?: string) {
-  return useLiveQuery(
-    () => userId ? db.profiles.get(userId) : undefined,
-    [userId]
-  )
+  const [profile, setProfile] = useState<Profile | undefined>()
+  useEffect(() => {
+    if (!userId) { setProfile(undefined); return }
+    list<Profile>("profiles").then((arr) => setProfile(arr[0])).catch(() => {})
+  }, [userId])
+  return profile
 }
 
 export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>) {
-  const existing = await db.profiles.get(id)
-  if (!existing) return
-  const merged = { ...existing, ...updates, updatedAt: new Date() }
-  await db.profiles.put(merged)
-  enqueue({ table: "profiles", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+  await mutate("profiles", "update", { id, ...updates, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
 }
 
 export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>) {
-  const member = await db.spaceMembers.where({ spaceId, userId }).first()
+  const members = await list<SpaceMember>("spaceMembers")
+  const member = members.find((m) => m.spaceId === spaceId && m.userId === userId)
   if (!member) return
-  const merged = { ...member, ...updates }
-  await db.spaceMembers.put(merged)
-  enqueue({ table: "spaceMembers", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: member.id })
+  await mutate("spaceMembers", "update", { ...member, ...updates } as unknown as Record<string, unknown>)
 }
 
 const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"

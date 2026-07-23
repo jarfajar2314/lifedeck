@@ -7,7 +7,6 @@ import { useAuth } from "@/components/auth-provider"
 import { useTheme } from "@/components/theme-provider"
 import { useSpaces } from "@/hooks/use-spaces"
 import { useAccounts, useProfile, updateProfile, updateSpaceMember } from "@/hooks/use-db"
-import db from "@/lib/db"
 import { toast } from "sonner"
 import { Copy, Check, LogOut, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -33,9 +32,14 @@ export function UserMenu({ open, onOpenChange, currentSpaceId }: UserMenuProps) 
 
   useEffect(() => {
     if (!user?.id) return
-    db.spaceMembers.where({ spaceId: currentSpaceId, userId: user.id }).first().then((m) => {
-      setDefaultAccountId(m?.defaultAccountId)
-    })
+    fetch("/api/data?table=spaceMembers", { credentials: "include" })
+      .then((r) => r.json())
+      .then((json) => {
+        const members = json.data as { id: string; spaceId: string; userId: string; defaultAccountId?: string }[]
+        const m = members.find((x) => x.spaceId === currentSpaceId && x.userId === user.id)
+        setDefaultAccountId(m?.defaultAccountId)
+      })
+      .catch(() => {})
   }, [currentSpaceId, user?.id, open])
 
   const currentSpace = spaces.find((s) => s.id === currentSpaceId)
