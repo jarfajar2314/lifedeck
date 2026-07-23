@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
+import type { Account } from "@/lib/db"
 
 const KEYS = [
   ["1", "2", "3"],
@@ -11,12 +12,16 @@ const KEYS = [
 ]
 
 type ExpenseKeypadProps = {
-  onAmount: (amount: number) => void
+  onAmount: (amount: number, accountId?: string) => void
   onClose: () => void
+  accounts: Account[]
 }
 
-export function ExpenseKeypad({ onAmount, onClose }: ExpenseKeypadProps) {
+export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProps) {
   const [display, setDisplay] = useState("")
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(
+    accounts.find((a) => a.isDefault)?.id
+  )
 
   const handleKey = useCallback((key: string) => {
     if (key === "⌫") {
@@ -31,10 +36,10 @@ export function ExpenseKeypad({ onAmount, onClose }: ExpenseKeypadProps) {
   const handleSubmit = useCallback(() => {
     const num = parseFloat(display)
     if (!isNaN(num) && num > 0) {
-      onAmount(num)
+      onAmount(num, selectedAccountId)
       setDisplay("")
     }
-  }, [display, onAmount])
+  }, [display, onAmount, selectedAccountId])
 
   return (
     <div className="flex flex-col items-center gap-4 p-4" role="group" aria-label="Numeric keypad">
@@ -50,6 +55,27 @@ export function ExpenseKeypad({ onAmount, onClose }: ExpenseKeypadProps) {
           )}
         </span>
       </div>
+
+      {accounts.length > 0 && (
+        <div className="flex w-full max-w-xs gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Payment source">
+          {accounts.map((account) => (
+            <button
+              key={account.id}
+              onClick={() => setSelectedAccountId(account.id)}
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                selectedAccountId === account.id
+                  ? "bg-accent-color text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+              role="radio"
+              aria-checked={selectedAccountId === account.id}
+            >
+              {account.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2" role="grid" aria-label="Keypad">
         {KEYS.map((row) => (

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react"
 import { useLiveQuery } from "dexie-react-hooks"
-import db, { type Transaction, type Task, type Note, type Category, type Account } from "@/lib/db"
+import db, { type Transaction, type Task, type Note, type Category, type Account, type Profile, type SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
 import { enqueue } from "@/lib/sync"
 
@@ -121,6 +121,29 @@ export function useAccounts(spaceId: string) {
     () => db.accounts.where("spaceId").equals(spaceId).toArray(),
     [spaceId]
   ) ?? []
+}
+
+export function useProfile(userId?: string) {
+  return useLiveQuery(
+    () => userId ? db.profiles.get(userId) : undefined,
+    [userId]
+  )
+}
+
+export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>) {
+  const existing = await db.profiles.get(id)
+  if (!existing) return
+  const merged = { ...existing, ...updates, updatedAt: new Date() }
+  await db.profiles.put(merged)
+  enqueue({ table: "profiles", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: id })
+}
+
+export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>) {
+  const member = await db.spaceMembers.where({ spaceId, userId }).first()
+  if (!member) return
+  const merged = { ...member, ...updates }
+  await db.spaceMembers.put(merged)
+  enqueue({ table: "spaceMembers", op: "upsert", data: merged as unknown as Record<string, unknown>, recordId: member.id })
 }
 
 const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"

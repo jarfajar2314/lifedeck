@@ -7,34 +7,41 @@ import { TaskList } from "@/components/task-list"
 import { NoteList } from "@/components/note-list"
 import { CommandBar } from "@/components/command-bar"
 import { ExpenseKeypad } from "@/components/expense-keypad"
+import { UserMenu } from "@/components/user-menu"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
-import { useTransactions, useTasks, useNotes } from "@/hooks/use-db"
+import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db"
+import db from "@/lib/db"
 import { useSpaces } from "@/hooks/use-spaces"
 import { useMultiSync } from "@/hooks/use-realtime"
-import { LogOut, Wallet, ListChecks, StickyNote, Plus, Wifi, WifiOff } from "lucide-react"
-import { useTheme } from "@/components/theme-provider"
+import { Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 export function Dashboard() {
-  const { user, signOut } = useAuth()
-  const { mode, accent, setMode, setAccent } = useTheme()
+  const { user } = useAuth()
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [keypadOpen, setKeypadOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
-  const [signingOut, setSigningOut] = useState(false)
 
   useMultiSync(currentId)
 
+  const accounts = useAccounts(currentId)
   const { add: addTransaction } = useTransactions(currentId)
   const { add: addTask } = useTasks(currentId)
   const { add: addNote } = useNotes(currentId)
 
-  const handleExpense = useCallback((amount: number, note?: string) => {
-    addTransaction({ spaceId: currentId, amount, type: "expense", note, loggedAt: new Date(), createdBy: user?.id })
+  const resolveAccountId = useCallback(async (accountName: string): Promise<string | undefined> => {
+    const account = await db.accounts.where("name").equals(accountName).first()
+    return account?.id
+  }, [])
+
+  const handleExpense = useCallback(async (amount: number, note?: string, account?: string) => {
+    const accountId = account ? await resolveAccountId(account) : undefined
+    addTransaction({ spaceId: currentId, amount, type: "expense", note, accountId, loggedAt: new Date(), createdBy: user?.id })
     toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
-  }, [currentId, user?.id, addTransaction])
+  }, [currentId, user?.id, addTransaction, resolveAccountId])
 
   const handleTask = useCallback((title: string) => {
     addTask({ spaceId: currentId, title, isCompleted: false, priority: "medium" })
@@ -46,16 +53,11 @@ export function Dashboard() {
     toast("Note saved")
   }, [currentId, addNote])
 
-  const handleKeypadExpense = useCallback((amount: number) => {
-    addTransaction({ spaceId: currentId, amount, type: "expense", loggedAt: new Date(), createdBy: user?.id })
+  const handleKeypadExpense = useCallback((amount: number, accountId?: string) => {
+    addTransaction({ spaceId: currentId, amount, type: "expense", accountId, loggedAt: new Date(), createdBy: user?.id })
     toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
     setKeypadOpen(false)
   }, [currentId, user?.id, addTransaction])
-
-  const handleSignOut = async () => {
-    setSigningOut(true)
-    await signOut()
-  }
 
   if (!user) {
     return (
@@ -86,30 +88,12 @@ export function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setMode(mode === "dark" ? "light" : mode === "light" ? "oled" : "dark")}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-xs text-muted-foreground hover:bg-secondary"
-              aria-label={`Theme: ${mode}`}
-              title={`Theme: ${mode}`}
+              onClick={() => setUserMenuOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-color/10 text-sm font-bold text-accent-color hover:bg-accent-color/20"
+              aria-label="Open settings"
+              title="Settings"
             >
-              {mode === "oled" ? "◆" : mode === "dark" ? "◐" : "☀"}
-            </button>
-            <button
-              onClick={() => setAccent(accent === "emerald" ? "violet" : accent === "violet" ? "cyan" : "emerald")}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-xs text-muted-foreground hover:bg-secondary"
-              aria-label={`Accent: ${accent}`}
-              title={`Accent: ${accent}`}
-              style={{ color: `var(--accent-color)` }}
-            >
-              ●
-            </button>
-            <button
-              onClick={handleSignOut}
-              disabled={signingOut}
-              className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-destructive"
-              aria-label="Sign out"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
             </button>
           </div>
         </div>
@@ -164,16 +148,18 @@ export function Dashboard() {
       </main>
 
       <CommandBar
-        onExpense={(amount, note) => handleExpense(amount, note)}
+        onExpense={(amount, note, account) => handleExpense(amount, note, account)}
         onTask={(title) => handleTask(title)}
         onNote={(content) => handleNote(content)}
       />
 
       <Drawer open={keypadOpen} onOpenChange={setKeypadOpen}>
         <DrawerContent aria-label="Expense keypad">
-          <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} />
+          <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} accounts={accounts} />
         </DrawerContent>
       </Drawer>
+
+      <UserMenu open={userMenuOpen} onOpenChange={setUserMenuOpen} currentSpaceId={currentId} />
     </div>
   )
 }
