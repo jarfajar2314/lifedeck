@@ -121,9 +121,17 @@ export async function pullAll(): Promise<void> {
     tables.map(async (table) => {
       try {
         const rows = await pullTable(table)
-        if (rows.length === 0) return
+        const t = (db as any)[table]
+        const localIds = new Set(await t.toCollection().primaryKeys())
+        const serverIds = new Set<string>()
         for (const row of rows) {
-          await (db as any)[table].put(row)
+          serverIds.add(row.id as string)
+          await t.put(row)
+        }
+        for (const id of localIds) {
+          if (!serverIds.has(id as string)) {
+            await t.delete(id)
+          }
         }
       } catch (err) {
         console.warn(`[sync] pull ${table} failed:`, err)
