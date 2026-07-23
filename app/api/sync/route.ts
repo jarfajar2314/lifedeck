@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { Pool } from "pg"
+import { sseManager } from "@/lib/sse-manager"
 
 interface SyncOp {
   table: string
@@ -136,6 +137,12 @@ export async function POST(request: Request): Promise<Response> {
       } catch (err) {
         results.push({ table, op: op.op, id: op.id, ok: false, error: String(err) })
       }
+    }
+
+    const okOps = operations.filter((o) => o.op === "upsert" || o.op === "delete")
+    const tables = [...new Set(okOps.map((o) => o.table))]
+    if (tables.length > 0) {
+      sseManager.broadcast("sync", { tables })
     }
 
     return Response.json({ results })
