@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 5.0  
+**Document Version:** 5.1  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 23, 2026  
@@ -22,7 +22,9 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 ### 1.3 Key Objectives & Metrics
 - **Universal Capture Speed:** Average time to log an expense, task, or note is < 3 seconds.
 - **Zero Network Dependency:** 100% offline functionality for local creation via IndexedDB with automatic cloud sync.
-- **Frictionless Household Sync:** Multi-user collaboration for couples/families with automatic cross-device sync via periodic polling (< 10s latency) and optional Realtime broadcast fast-path.
+- **Frictionless Household Sync:** Multi-user collaboration for couples/families with < 3s cross-device latency via SSE + PostgreSQL LISTEN/NOTIFY, with 10s polling fallback.
+- **Payment Source Routing:** Natural language account parsing (`25k lunch @gopay`) resolves tagged accounts to tracked payment sources.
+- **Self-Service Settings:** In-app user menu for theme, currency, default payment account, and space management.
 - **Graph-Powered AI Insights (Dev Tooling):** Graphify maps the codebase AST, routes, and schemas so AI coding assistants can navigate the full project with zero context waste.
 - **Email & Password Authentication:** Standard sign-up and sign-in with email and password.
 - **High Accessibility Standards:** 100% WCAG 2.1 AA compliance and mobile thumb-zone ergonomics.
@@ -42,6 +44,8 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 | **Tasks** | Busy User | Quickly add and swipe off daily to-dos | I can keep my day organized without heavy project management bloat. |
 | **Notes** | Thinker | Jot down quick micro-notes or scratchpad thoughts | I don't lose fleeting ideas or important reference snippets. |
 | **System** | Offline User | Capture data while offline in remote areas | The app saves locally immediately and syncs to Supabase when reconnected. |
+| **Account Tagging** | Finance User | Type `25k lunch @gopay` to attach a payment source | Transactions are automatically categorized by account without extra taps. |
+| **Settings** | User | Open a user menu to adjust theme, currency, and default payment | I can tailor the app to my preferences without leaving the dashboard. |
 
 ---
 
@@ -99,6 +103,8 @@ The bottom sticky bar in LifeDeck acts as a universal router:
 
 1. **Expense Rule:** If the input starts with a number or currency shorthand (e.g., `25k`, `150k`, `$15`), route to Transactions.
    - *Example:* `25k lunch @gopay` ➔ Amount: 25,000, Category: Food, Account: Gopay.
+   - The `@account` tag is resolved to an `accountId` via Dexie lookup scoped to the current space.
+   - If no `@` tag is provided, the user's default account for that space (from `space_members.default_account_id`) is used.
 2. **Task Rule:** If the input starts with `todo`, `task`, or `[]`, route to Tasks.
    - *Example:* `todo Buy milk tomorrow` ➔ Task: Buy milk, Due: Tomorrow.
 3. **Note Rule:** If the input starts with `note` or is plain text without monetary values, route to Quick Notes.
@@ -139,11 +145,19 @@ Data within LifeDeck is scope-bound to a Space:
 2. **Accept Invite:** Partner enters code or opens link to instantly join `space_members`.
 3. **Creator Attribution:** Every shared transaction, task, or note displays a small avatar/badge indicating who created or modified the record.
 
+### 6.4 User Settings & Preferences
+- **User Menu:** Avatar/name in the dashboard header opens a bottom-sheet settings drawer.
+- **Theme & Accent:** Dark/Light/OLED mode + Emerald/Violet/Cyan accent, persisted to `profiles.theme_preference` and `profiles.accent_color` (synced across devices).
+- **Currency:** Default currency per user stored in `profiles.currency`.
+- **Default Payment Account:** Per-space default account stored in `space_members.default_account_id`.
+  - When a user creates an expense without an `@account` tag, it assigns to this default account.
+  - The `default_account_id` column references `accounts(id)` and is nullable.
+
 ### 6.3 Cross-Device Sync Infrastructure
 - Offline-first: writes go to local Dexie.js (IndexedDB) instantly, then sync to PostgreSQL via `/api/sync`.
 - Sync Queue: operations enqueue globally, flush after 2s debounce (or immediately on sign-out).
-- Cross-device visibility: each device polls `pullAll()` every 10 seconds (tab-visibility aware).
-- Supabase Realtime available as a fast-path optimization (broadcast channel) for when both devices are online simultaneously.
+- True realtime: after `/api/sync` writes to PostgreSQL, it executes `NOTIFY sync_update, payload`. A shared SSE manager (`lib/sse-manager.ts`) maintains a persistent pg `LISTEN` connection and pushes events to connected browser clients.
+- Fallback: `useMultiSync` polls `pullAll()` every 10 seconds (tab-visibility aware) if SSE disconnects.
 
 ---
 
@@ -224,6 +238,7 @@ CREATE TABLE IF NOT EXISTS public.space_members (
   space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
   user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,  
   role TEXT CHECK (role IN ('owner', 'member')) DEFAULT 'member',  
+  default_account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,  
   joined_at TIMESTAMPTZ DEFAULT NOW(),  
   created_at TIMESTAMPTZ DEFAULT NOW(),  
   UNIQUE(space_id, user_id)  
@@ -356,8 +371,15 @@ CREATE POLICY "Users can view members of their spaces" ON public.space_members
 - ✅ Theme contrast verification across all four themes
 - ✅ Mobile-first responsive layout with thumb-zone targets
 
-### 🔄 Current & Upcoming
-- Hardening: data durability across logout/login (profile FK fix applied, pending test)
+### 🔄 Phase 5: Payment Parsing, User Settings & True Realtime
+
+**Status:** In Progress
+
+- ✅ **Payment Source Parser** — `25k milk @gopay` resolves `@gopay` to an `accountId` via Dexie lookup; ExpenseKeypad gets a payment source selector dropdown; falls back to user's default account if no `@` tag.
+- ✅ **User Menu & Settings Drawer** — Bottom-sheet triggered by avatar/name in header; profile info, theme/accent toggles, currency selector, default account per space, space invite settings, sign out.
+- ✅ **True Realtime via SSE + PostgreSQL LISTEN/NOTIFY** — Sync API emits `NOTIFY` after writes; shared SSE manager pushes events to connected browser clients; polling remains as 10s fallback.
+
+### 📋 Future Considerations
 - Edge case handling for sync conflicts
 - Performance optimization for large datasets
 - Deployment preparation (Vercel / custom domain)
