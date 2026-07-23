@@ -55,11 +55,14 @@ function toSnake(dexieTable: string, data: Record<string, unknown>): Record<stri
   return out
 }
 
+const NUMERIC_FIELDS = new Set(["amount", "monthlyBudget", "monthly_budget"])
+
 function toCamel(dexieTable: string, row: Record<string, unknown>): Record<string, unknown> {
   const map = REVERSE_COLUMN_MAP[dexieTable] || {}
   const out: Record<string, unknown> = {}
   for (const [key, val] of Object.entries(row)) {
-    out[map[key] || key] = val
+    const mapped = map[key] || key
+    out[mapped] = NUMERIC_FIELDS.has(mapped) && typeof val === "string" ? parseFloat(val) : val
   }
   return out
 }
