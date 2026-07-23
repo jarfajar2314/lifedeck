@@ -89,6 +89,10 @@ export async function pushOperations(ops: SyncOperation[]): Promise<void> {
         }),
       }),
     })
+    if (res.status === 401) {
+      console.warn("[sync] session expired, discarding", ops.length, "pending ops")
+      return
+    }
     if (!res.ok) throw new Error(`Sync push failed: ${res.status}`)
     await res.json()
   } catch (err) {
@@ -127,6 +131,11 @@ export async function pullAll(): Promise<void> {
 
 let isProcessing = false
 const QUEUE: SyncOperation[] = []
+
+export async function flushNow(): Promise<void> {
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+  await flush()
+}
 
 export function enqueue(op: Omit<SyncOperation, "id" | "createdAt" | "retries">): void {
   QUEUE.push({ ...op, createdAt: new Date().toISOString(), retries: 0 })
