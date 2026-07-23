@@ -7,7 +7,12 @@ const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")
   .filter(Boolean)
 
 export const auth = betterAuth({
-  database: memoryAdapter({}),
+  database: memoryAdapter({
+    user: [],
+    session: [],
+    account: [],
+    verification: [],
+  }),
   emailAndPassword: {
     enabled: true,
   },
