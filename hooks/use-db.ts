@@ -1,62 +1,49 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useCallback } from "react"
+import { useLiveQuery } from "dexie-react-hooks"
 import db, { type Transaction, type Task, type Note, type Category, type Account } from "@/lib/db"
 import { uid } from "@/lib/uid"
 import { enqueue } from "@/lib/sync"
 
 export function useTransactions(spaceId: string) {
-  const [items, setItems] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const data = await db.transactions
+  const items = useLiveQuery(
+    () => db.transactions
       .where("spaceId")
       .equals(spaceId)
-      .reverse()
-      .sortBy("loggedAt")
-    setItems(data)
-    setLoading(false)
-  }, [spaceId])
-
-  useEffect(() => { refresh() }, [refresh])
+      .toArray()
+      .then((arr) => arr.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())),
+    [spaceId],
+    []
+  )
 
   const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
     const id = uid()
     const data = { ...tx, id, createdAt: new Date() }
     await db.transactions.add(data)
     enqueue({ table: "transactions", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
-    await refresh()
     return id
   }
 
-  return { items, loading, add }
+  return { items, loading: false, add }
 }
 
 export function useTasks(spaceId: string) {
-  const [items, setItems] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const data = await db.tasks
+  const items = useLiveQuery(
+    () => db.tasks
       .where("spaceId")
       .equals(spaceId)
-      .reverse()
-      .sortBy("createdAt")
-    setItems(data)
-    setLoading(false)
-  }, [spaceId])
-
-  useEffect(() => { refresh() }, [refresh])
+      .toArray()
+      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+    [spaceId],
+    []
+  )
 
   const add = async (task: Omit<Task, "id" | "createdAt">) => {
     const id = uid()
     const data = { ...task, id, createdAt: new Date() }
     await db.tasks.add(data)
     enqueue({ table: "tasks", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
-    await refresh()
     return id
   }
 
@@ -69,34 +56,26 @@ export function useTasks(spaceId: string) {
     }
     await db.tasks.update(id, updates)
     enqueue({ table: "tasks", op: "upsert", data: { ...task, ...updates } as unknown as Record<string, unknown>, recordId: id })
-    await refresh()
   }
 
   const remove = async (id: string) => {
     await db.tasks.delete(id)
     enqueue({ table: "tasks", op: "delete", recordId: id })
-    await refresh()
   }
 
-  return { items, loading, add, toggle, remove }
+  return { items, loading: false, add, toggle, remove }
 }
 
 export function useNotes(spaceId: string) {
-  const [items, setItems] = useState<Note[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const data = await db.notes
+  const items = useLiveQuery(
+    () => db.notes
       .where("spaceId")
       .equals(spaceId)
-      .reverse()
-      .sortBy("createdAt")
-    setItems(data)
-    setLoading(false)
-  }, [spaceId])
-
-  useEffect(() => { refresh() }, [refresh])
+      .toArray()
+      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+    [spaceId],
+    []
+  )
 
   const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
     const id = uid()
@@ -104,7 +83,6 @@ export function useNotes(spaceId: string) {
     const data = { ...note, id, createdAt: now, updatedAt: now }
     await db.notes.add(data)
     enqueue({ table: "notes", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
-    await refresh()
     return id
   }
 
@@ -114,41 +92,34 @@ export function useNotes(spaceId: string) {
     const updates = { isPinned: !note.isPinned, updatedAt: new Date() }
     await db.notes.update(id, updates)
     enqueue({ table: "notes", op: "upsert", data: { ...note, ...updates } as unknown as Record<string, unknown>, recordId: id })
-    await refresh()
   }
 
   const remove = async (id: string) => {
     await db.notes.delete(id)
     enqueue({ table: "notes", op: "delete", recordId: id })
-    await refresh()
   }
 
-  return { items, loading, add, togglePin, remove }
+  return { items, loading: false, add, togglePin, remove }
 }
 
 export function useCategories(spaceId: string) {
-  const [items, setItems] = useState<Category[]>([])
-
-  useEffect(() => {
-    db.categories.where("spaceId").equals(spaceId).toArray().then(setItems)
-  }, [spaceId])
-
-  return items
+  return useLiveQuery(
+    () => db.categories.where("spaceId").equals(spaceId).toArray(),
+    [spaceId],
+    [] as Category[]
+  )
 }
 
 export function useAccounts(spaceId: string) {
-  const [items, setItems] = useState<Account[]>([])
-
-  useEffect(() => {
-    db.accounts.where("spaceId").equals(spaceId).toArray().then(setItems)
-  }, [spaceId])
-
-  return items
+  return useLiveQuery(
+    () => db.accounts.where("spaceId").equals(spaceId).toArray(),
+    [spaceId],
+    [] as Account[]
+  )
 }
 
 const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
 
 export function useSpace(defaultSpaceId = PERSONAL_SPACE_ID) {
-  const [spaceId] = useState(defaultSpaceId)
-  return spaceId
+  return defaultSpaceId
 }
