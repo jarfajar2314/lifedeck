@@ -2,7 +2,6 @@ import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
 import { PostgresDialect } from "kysely"
 import { Pool } from "pg"
-import dns from "dns/promises"
 
 const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")
   .split(",")
@@ -31,18 +30,11 @@ async function initAuth() {
     return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
   }
 
-  const url = new URL(raw)
-  const ssl = url.searchParams.get("sslmode") !== "disable"
-
-  const ips = await dns.resolve4(url.hostname).catch(() => [])
+  const ssl = raw.includes("sslmode=require") || raw.includes("sslmode=required")
 
   return betterAuth(baseConfig(new PostgresDialect({
     pool: new Pool({
-      host: ips[0] || url.hostname,
-      port: Number(url.port) || 5432,
-      database: url.pathname.replace(/^\//, ""),
-      user: url.username,
-      password: url.password,
+      connectionString: raw,
       max: 10,
       ssl: ssl ? { rejectUnauthorized: false } : false,
     }),
