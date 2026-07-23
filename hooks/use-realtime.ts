@@ -23,17 +23,32 @@ export function useMultiSync(spaceId: string) {
   useEffect(() => {
     if (!spaceId) return
 
-    function syncTables(tables: string[]) {
+    async function syncTables(tables: string[]) {
       for (const table of tables) {
         const dexieTable = DEXIE_TABLE[table]
         if (!dexieTable) continue
-        pullTable(table).then((rows) => {
+        try {
+          const rows = await pullTable(table)
           if (!mountedRef.current) return
           const t = (db as any)[dexieTable]
+
+          const serverIds = new Set<string>()
           for (const row of rows) {
-            t.put(row)
+            if (row.spaceId === spaceId || !("spaceId" in row)) {
+              serverIds.add(row.id as string)
+              await t.put(row)
+            }
           }
-        }).catch((err) => console.warn(`[sse] pull ${table} failed:`, err))
+
+          const localIds = await t.where("spaceId").equals(spaceId).primaryKeys()
+          for (const id of localIds) {
+            if (!serverIds.has(id as string)) {
+              await t.delete(id)
+            }
+          }
+        } catch (err) {
+          console.warn(`[sse] pull ${table} failed:`, err)
+        }
       }
     }
 
