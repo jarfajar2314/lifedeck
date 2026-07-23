@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useRef } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { authClient } from "@/lib/auth-client"
 import db from "@/lib/db"
 import { pullAll, flushNow, enqueue } from "@/lib/sync"
@@ -38,6 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
     ;(async () => {
+      await Promise.all(db.tables.map((t) => t.clear()))
+
       const existing = await db.profiles.get(user.id)
       if (!existing) {
         const profile = {
@@ -53,23 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await db.profiles.put(profile)
         enqueue({ table: "profiles", op: "upsert", data: profile as unknown as Record<string, unknown>, recordId: user.id })
       }
-    })()
-    pullAll()
-  }, [user?.id])
 
-  const prevUserId = useRef(user?.id)
-  useEffect(() => {
-    if (prevUserId.current && prevUserId.current !== user?.id) {
-      ;(async () => {
-        await flushNow()
-        await Promise.all(db.tables.map((t) => t.clear())).catch(() => {})
-      })()
-    }
-    prevUserId.current = user?.id
+      await pullAll()
+    })()
   }, [user?.id])
 
   const signOut = async () => {
     await flushNow()
+    await Promise.all(db.tables.map((t) => t.clear()))
     await authClient.signOut()
     setUser(null)
     setSession(null)
