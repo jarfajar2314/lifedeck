@@ -231,10 +231,6 @@ export async function updateSpaceMember(spaceId: string, userId: string, updates
   })
 }
 
-export function personalSpaceId(userId: string): string {
-  return `personal-${userId}`
-}
-
 export function useSpace(defaultSpaceId: string) {
   return defaultSpaceId
 }

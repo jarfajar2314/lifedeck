@@ -47,10 +47,10 @@ export function useSpaces(userId?: string) {
         return
       }
 
-      const personalSpace = spaces.find((s) => s.personal)
-      if (personalSpace) {
-        setCurrentIdState(personalSpace.id)
-        localStorage.setItem("lifedeck-current-space", personalSpace.id)
+      const first = spaces[0]
+      if (first) {
+        setCurrentIdState(first.id)
+        localStorage.setItem("lifedeck-current-space", first.id)
         setInitializing(false)
         return
       }
@@ -58,15 +58,14 @@ export function useSpaces(userId?: string) {
       const psId = uid()
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       try {
-        await store.persist("spaces", "add", { id: psId, name: "Personal", personal: true, inviteCode, createdAt: new Date().toISOString() })
+        await store.persist("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() })
         await store.persist("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() })
       } catch {}
       store.invalidate(["spaces", "spaceMembers"])
       const allSpaces = await store.list<Space>("spaces")
-      const fallbackSpace = allSpaces.find((s) => s.personal)
-      if (fallbackSpace) {
-        setCurrentIdState(fallbackSpace.id)
-        localStorage.setItem("lifedeck-current-space", fallbackSpace.id)
+      if (allSpaces[0]) {
+        setCurrentIdState(allSpaces[0].id)
+        localStorage.setItem("lifedeck-current-space", allSpaces[0].id)
       }
       setInitializing(false)
     }
@@ -82,7 +81,7 @@ export function useSpaces(userId?: string) {
   const createSpace = useCallback(async (name: string) => {
     const id = uid()
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const space = { id, name, inviteCode, personal: false, createdAt: new Date().toISOString() } as unknown as Space
+    const space = { id, name, inviteCode, createdAt: new Date().toISOString() } as unknown as Space
     await store.mutateOptimistic<Space>("spaces", undefined, "add", (items) => ({
       items: [...items, space],
       record: space as unknown as Record<string, unknown>,

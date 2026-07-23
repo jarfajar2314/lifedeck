@@ -48,7 +48,7 @@ async function initAuth() {
               )
 
               await pool.query(
-                `INSERT INTO public.spaces (id, name, invite_code, personal, created_at) VALUES ($1, 'Personal', $2, TRUE, NOW()) ON CONFLICT DO NOTHING`,
+                `INSERT INTO public.spaces (id, name, invite_code, created_at) VALUES ($1, 'Personal', $2, NOW()) ON CONFLICT DO NOTHING`,
                 [spaceId, inviteCode]
               )
 

@@ -14,7 +14,6 @@ export interface Space {
   id: string
   name: string
   inviteCode: string
-  personal: boolean
   createdAt: Date
 }
 
