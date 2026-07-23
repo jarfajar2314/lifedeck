@@ -2,6 +2,8 @@ import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
 import { PostgresDialect } from "kysely"
 import { Pool } from "pg"
+import dns from "dns"
+dns.setDefaultResultOrder("ipv4first")
 
 const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")
   .split(",")
@@ -18,6 +20,8 @@ function createPostgresDialect() {
     )
   }
   const url = new URL(raw)
+  const params = Object.fromEntries(url.searchParams.entries())
+  const ssl = params.sslmode !== "disable"
   return new PostgresDialect({
     pool: new Pool({
       host: url.hostname,
@@ -26,6 +30,7 @@ function createPostgresDialect() {
       user: url.username,
       password: url.password,
       max: 10,
+      ssl: ssl ? { rejectUnauthorized: false } : false,
     }),
   })
 }
