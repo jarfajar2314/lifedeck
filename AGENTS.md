@@ -44,6 +44,7 @@
 
 ## 5. Version Control & Git Commit Best Practices
 
+* Before committing, inspect `git status`, `git diff`, and `git log --oneline -10`; stage only intended files and never commit secrets.
 * **Logical Grouping:** When asked to commit, group changed files logically into atomic, meaningful commits using **Conventional Commits** syntax:
   * `feat(...)`: New features or functionality additions.
   * `fix(...)`: Bug fixes or logic error corrections.
@@ -119,4 +120,7 @@ When instructed to bump the project version:
 
 ### 9.6 Auto-Commit After Work
 * After completing any task or feature, immediately create a commit with a descriptive Conventional Commits message. Do not batch unrelated changes. See Section 5 for commit format.
+
+### 9.7 No Auto-Push
+* Commit locally only. **Never push** to remote unless explicitly asked. The user controls when changes are pushed.
 

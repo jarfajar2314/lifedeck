@@ -23,7 +23,17 @@ export function useTransactions(spaceId: string) {
     return id
   }
 
-  return { items: items ?? [], loading: items === undefined, add }
+  const update = async (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => {
+    await db.transactions.update(id, updates)
+    enqueue({ table: "transactions", op: "upsert", data: { ...updates, id } as unknown as Record<string, unknown>, recordId: id })
+  }
+
+  const remove = async (id: string) => {
+    await db.transactions.delete(id)
+    enqueue({ table: "transactions", op: "delete", recordId: id })
+  }
+
+  return { items: items ?? [], loading: items === undefined, add, update, remove }
 }
 
 export function useTasks(spaceId: string) {
