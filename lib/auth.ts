@@ -30,13 +30,13 @@ async function initAuth() {
     return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
   }
 
-  const ssl = raw.includes("sslmode=require") || raw.includes("sslmode=required")
+  const connStr = raw.replace(/\?sslmode=\w+/, "").replace(/&sslmode=\w+/, "")
 
   return betterAuth(baseConfig(new PostgresDialect({
     pool: new Pool({
-      connectionString: raw,
+      connectionString: connStr,
       max: 10,
-      ssl: ssl ? { rejectUnauthorized: false } : false,
+      ssl: { rejectUnauthorized: false },
     }),
   })))
 }
