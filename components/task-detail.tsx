@@ -50,9 +50,9 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   }
 
   const priorityColors: Record<string, string> = {
-    high: "bg-destructive text-destructive-foreground",
-    medium: "bg-accent-color/20 text-accent-color",
-    low: "bg-muted text-muted-foreground",
+    high: "bg-red-500/15 text-red-500",
+    medium: "bg-yellow-500/15 text-yellow-500",
+    low: "bg-green-500/15 text-green-500",
   }
 
   return (

@@ -107,10 +107,10 @@ export function TaskList({ spaceId, limit }: TaskListProps) {
                 </button>
                 <span
                   className={cn(
-                    "text-[10px] font-medium uppercase tracking-wider",
-                    task.priority === "high" && "text-destructive",
-                    task.priority === "medium" && "text-accent-color",
-                    task.priority === "low" && "text-muted-foreground"
+                    "rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                    task.priority === "high" && "bg-red-500/15 text-red-500",
+                    task.priority === "medium" && "bg-yellow-500/15 text-yellow-500",
+                    task.priority === "low" && "bg-green-500/15 text-green-500"
                   )}
                   aria-label={`Priority: ${task.priority}`}
                 >
