@@ -1,5 +1,3 @@
-import Dexie, { type EntityTable } from "dexie"
-
 export interface Profile {
   id: string
   displayName?: string
@@ -81,27 +79,3 @@ export interface Note {
   createdAt: Date
   updatedAt: Date
 }
-
-const db = new Dexie("LifeDeck") as Dexie & {
-  profiles: EntityTable<Profile, "id">
-  spaces: EntityTable<Space, "id">
-  spaceMembers: EntityTable<SpaceMember, "id">
-  accounts: EntityTable<Account, "id">
-  categories: EntityTable<Category, "id">
-  transactions: EntityTable<Transaction, "id">
-  tasks: EntityTable<Task, "id">
-  notes: EntityTable<Note, "id">
-}
-
-db.version(1).stores({
-  profiles: "id, currency, createdAt",
-  spaces: "id, name, inviteCode, createdAt",
-  spaceMembers: "id, spaceId, userId, role",
-  accounts: "id, spaceId, name, isDefault",
-  categories: "id, spaceId, name",
-  transactions: "id, spaceId, createdBy, accountId, categoryId, type, loggedAt, createdAt",
-  tasks: "id, spaceId, createdBy, assignedTo, isCompleted, priority, dueDate, createdAt",
-  notes: "id, spaceId, createdBy, isPinned, createdAt",
-})
-
-export default db
