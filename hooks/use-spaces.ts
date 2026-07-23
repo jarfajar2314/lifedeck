@@ -6,8 +6,16 @@ import { uid } from "@/lib/uid"
 
 const API = "/api/data"
 
-function personalSpaceId(userId: string): string {
-  return `personal-${userId}`
+function personalSpaceKey(userId: string): string {
+  return `lifedeck-personal-space-${userId}`
+}
+
+function getCachedPersonalSpaceId(userId: string): string | null {
+  return localStorage.getItem(personalSpaceKey(userId))
+}
+
+function setCachedPersonalSpaceId(userId: string, spaceId: string): void {
+  localStorage.setItem(personalSpaceKey(userId), spaceId)
 }
 
 export type SpaceWithRole = Space & { role: "owner" | "member" }
@@ -51,21 +59,16 @@ export function useSpaces(userId?: string) {
 
   useEffect(() => { refresh() }, [refresh])
 
-  useEffect(() => {
-    if (!userId) return
-    const psId = personalSpaceId(userId)
-    const saved = localStorage.getItem("lifedeck-current-space")
-    if (saved && saved !== psId) {
-      setCurrentIdState(psId)
-    } else {
-      setCurrentIdState(psId)
-    }
-  }, [userId])
-
   const ensurePersonalSpace = useCallback(async () => {
     if (!userId) return
     await mutate("profiles", "add", { id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-    const psId = personalSpaceId(userId)
+
+    let psId = getCachedPersonalSpaceId(userId)
+    if (!psId) {
+      psId = uid()
+      setCachedPersonalSpaceId(userId, psId)
+    }
+
     const allSpaces = await list<Space>("spaces")
     const existing = allSpaces.find((s) => s.id === psId)
     if (!existing) {
@@ -77,6 +80,8 @@ export function useSpaces(userId?: string) {
       await mutate("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     }
     await refresh()
+    localStorage.removeItem("lifedeck-current-space")
+    setCurrentIdState(psId)
   }, [userId, refresh])
 
   useEffect(() => { ensurePersonalSpace() }, [ensurePersonalSpace])
