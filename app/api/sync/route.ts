@@ -90,7 +90,7 @@ export async function GET(request: Request): Promise<Response> {
       return out
     })
 
-    return Response.json({ data: mapped })
+    return Response.json({ data: mapped }, { headers: { "Cache-Control": "no-store, max-age=0" } })
   } catch (err) {
     console.error("[sync] GET error:", err)
     return Response.json({ error: String(err) }, { status: 500 })

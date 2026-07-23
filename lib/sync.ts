@@ -105,7 +105,7 @@ export async function pushOperations(ops: SyncOperation[]): Promise<void> {
 }
 
 export async function pullTable(table: string): Promise<Record<string, unknown>[]> {
-  const url = `${getApiUrl()}?table=${table}`
+  const url = `${getApiUrl()}?table=${table}&_=${Date.now()}`
   const res = await fetch(url, { credentials: "include" })
   if (!res.ok) {
     if (res.status === 401) return []
