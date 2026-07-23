@@ -28,7 +28,7 @@ const COLUMN_MAP: Record<string, Record<string, string>> = {
   tasks: { spaceId: "space_id", createdBy: "created_by", assignedTo: "assigned_to", isCompleted: "is_completed", dueDate: "due_date", completedAt: "completed_at", createdAt: "created_at" },
   notes: { spaceId: "space_id", createdBy: "created_by", isPinned: "is_pinned", createdAt: "created_at", updatedAt: "updated_at" },
   spaces: { inviteCode: "invite_code", createdAt: "created_at" },
-  spaceMembers: { spaceId: "space_id", userId: "user_id", joinedAt: "joined_at" },
+  spaceMembers: { spaceId: "space_id", userId: "user_id", joinedAt: "joined_at", createdAt: "created_at" },
   accounts: { spaceId: "space_id", isDefault: "is_default", createdAt: "created_at" },
   categories: { spaceId: "space_id", createdAt: "created_at" },
   profiles: { displayName: "display_name", avatarUrl: "avatar_url", monthlyBudget: "monthly_budget", themePreference: "theme_preference", accentColor: "accent_color", createdAt: "created_at", updatedAt: "updated_at" },

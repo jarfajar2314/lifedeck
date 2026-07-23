@@ -17,7 +17,7 @@ const COLUMN_MAP: Record<string, Record<string, string>> = {
   transactions: { space_id: "spaceId", created_by: "createdBy", account_id: "accountId", category_id: "categoryId", logged_at: "loggedAt", created_at: "createdAt" },
   tasks: { space_id: "spaceId", created_by: "createdBy", assigned_to: "assignedTo", is_completed: "isCompleted", due_date: "dueDate", completed_at: "completedAt", created_at: "createdAt" },
   notes: { space_id: "spaceId", created_by: "createdBy", is_pinned: "isPinned", created_at: "createdAt", updated_at: "updatedAt" },
-  space_members: { space_id: "spaceId", user_id: "userId", joined_at: "joinedAt" },
+  space_members: { space_id: "spaceId", user_id: "userId", joined_at: "joinedAt", created_at: "createdAt" },
 }
 
 function toCamel(table: SupabaseTable, row: Record<string, unknown>): Record<string, unknown> {

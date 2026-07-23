@@ -24,7 +24,7 @@ const COLUMN_MAP: Record<string, Record<string, string>> = {
   tasks: { space_id: "spaceId", created_by: "createdBy", assigned_to: "assignedTo", is_completed: "isCompleted", due_date: "dueDate", completed_at: "completedAt", created_at: "createdAt" },
   notes: { space_id: "spaceId", created_by: "createdBy", is_pinned: "isPinned", created_at: "createdAt", updated_at: "updatedAt" },
   spaces: { invite_code: "inviteCode", created_at: "createdAt" },
-  space_members: { space_id: "spaceId", user_id: "userId", joined_at: "joinedAt" },
+  space_members: { space_id: "spaceId", user_id: "userId", joined_at: "joinedAt", created_at: "createdAt" },
   accounts: { space_id: "spaceId", is_default: "isDefault", created_at: "createdAt" },
   categories: { space_id: "spaceId", created_at: "createdAt" },
   profiles: { display_name: "displayName", avatar_url: "avatarUrl", monthly_budget: "monthlyBudget", theme_preference: "themePreference", accent_color: "accentColor", created_at: "createdAt", updated_at: "updatedAt" },
@@ -62,7 +62,7 @@ export async function GET(request: Request): Promise<Response> {
     if (!sqlTable) return Response.json({ error: `Unknown table: ${table}` }, { status: 400 })
 
     const colMap = COLUMN_MAP[sqlTable] || {}
-    const rows = await query(pool, `SELECT * FROM "${sqlTable}" ORDER BY "created_at" DESC`)
+    const rows = await query(pool, `SELECT * FROM "${sqlTable}"`)
 
     const mapped = rows.map((r) => {
       const out: Record<string, unknown> = {}

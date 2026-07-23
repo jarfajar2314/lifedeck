@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.space_members (
   user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   role TEXT CHECK (role IN ('owner', 'member')) DEFAULT 'member',
   joined_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(space_id, user_id)
 );
 
