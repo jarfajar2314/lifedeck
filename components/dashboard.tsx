@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
+import { useRealtime } from "@/hooks/use-realtime"
 import { Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -22,6 +23,8 @@ export function Dashboard() {
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
+
+  useRealtime()
 
   const accounts = useAccounts(currentId)
   const { add: addTransaction } = useTransactions(currentId)

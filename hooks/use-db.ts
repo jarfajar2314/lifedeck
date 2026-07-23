@@ -43,6 +43,12 @@ function useList<T>(table: string, spaceId: string | undefined) {
 
   useEffect(() => { refresh() }, [refresh])
 
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener("data-refresh", handler)
+    return () => window.removeEventListener("data-refresh", handler)
+  }, [refresh])
+
   return { items, loading, refresh }
 }
 

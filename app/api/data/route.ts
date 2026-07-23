@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { Pool } from "pg"
+import { sseManager } from "@/lib/sse-manager"
 
 let pool: Pool | null = null
 function getPool(): Pool {
@@ -129,6 +130,7 @@ export async function POST(request: Request): Promise<Response> {
     if (op === "delete") {
       if (!id) return Response.json({ error: "id required for delete" }, { status: 400 })
       await query(`DELETE FROM "${sqlTable}" WHERE id = $1`, [id])
+      sseManager.broadcast("sync", { tables: [table] })
       return Response.json({ ok: true })
     }
 
@@ -147,6 +149,7 @@ export async function POST(request: Request): Promise<Response> {
         `INSERT INTO "${sqlTable}" (${cols.join(", ")}) VALUES (${placeholders.join(", ")}) ON CONFLICT (id) DO UPDATE SET ${updates}`,
         vals
       )
+      sseManager.broadcast("sync", { tables: [table] })
       return Response.json({ ok: true, id: recordId })
     }
 
