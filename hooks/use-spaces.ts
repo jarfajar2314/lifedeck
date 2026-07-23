@@ -72,7 +72,8 @@ export function useSpaces(userId?: string) {
     const allSpaces = await list<Space>("spaces")
     const existing = allSpaces.find((s) => s.id === psId)
     if (!existing) {
-      await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode: "", createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+      await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     }
     const members = await list<SpaceMember>("spaceMembers")
     const isMember = members.find((m) => m.spaceId === psId && m.userId === userId)
