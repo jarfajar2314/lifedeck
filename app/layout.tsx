@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -19,12 +19,15 @@ export const metadata: Metadata = {
   title: "LifeDeck",
   description: "Personal & Household Command Center",
   manifest: "/manifest.json",
-  themeColor: "#09090b",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "LifeDeck",
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#09090b",
 }
 
 export default function RootLayout({
