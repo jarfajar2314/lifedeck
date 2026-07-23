@@ -14,6 +14,7 @@ import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
 import { useRealtime } from "@/hooks/use-realtime"
+import { haptics } from "@/lib/haptics"
 import { Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -22,7 +23,6 @@ export function Dashboard() {
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
 
   useRealtime()
 
@@ -38,16 +38,19 @@ export function Dashboard() {
   const handleExpense = useCallback(async (amount: number, note?: string, account?: string) => {
     const accountId = account ? await resolveAccountId(account) : undefined
     addTransaction({ spaceId: currentId, amount, type: "expense", note, accountId, loggedAt: new Date(), createdBy: user?.id })
+    haptics.success()
     toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
   }, [currentId, user?.id, addTransaction, resolveAccountId])
 
   const handleTask = useCallback((title: string) => {
     addTask({ spaceId: currentId, title, isCompleted: false, priority: "medium" })
+    haptics.success()
     toast("Task added")
   }, [currentId, addTask])
 
   const handleNote = useCallback((content: string) => {
     addNote({ spaceId: currentId, content, tags: [], isPinned: false })
+    haptics.success()
     toast("Note saved")
   }, [currentId, addNote])
 

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
+import { haptics } from "@/lib/haptics"
 import type { Account } from "@/lib/db"
 
 const KEYS = [
@@ -24,6 +25,7 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
   )
 
   const handleKey = useCallback((key: string) => {
+    haptics.tap()
     if (key === "⌫") {
       setDisplay((prev) => prev.slice(0, -1))
       return
@@ -36,6 +38,7 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
   const handleSubmit = useCallback(() => {
     const num = parseFloat(display)
     if (!isNaN(num) && num > 0) {
+      haptics.success()
       onAmount(num, selectedAccountId)
       setDisplay("")
     }
@@ -85,8 +88,8 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
                 key={key}
                 onClick={() => handleKey(key)}
                 className={cn(
-                  "flex h-16 w-20 items-center justify-center rounded-xl text-xl font-medium transition-colors",
-                  "bg-secondary text-secondary-foreground active:bg-muted-foreground/20",
+                  "flex h-16 w-20 items-center justify-center rounded-xl text-xl font-medium transition-all",
+                  "bg-secondary text-secondary-foreground active:scale-95 active:bg-muted-foreground/20",
                   key === "⌫" && "text-muted-foreground"
                 )}
                 aria-label={key === "⌫" ? "Delete" : key === "." ? "Decimal point" : key}
