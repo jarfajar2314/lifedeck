@@ -15,6 +15,7 @@ import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db
 import { useSpaces } from "@/hooks/use-spaces"
 import { useRealtime } from "@/hooks/use-realtime"
 import { haptics } from "@/lib/haptics"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -90,11 +91,16 @@ export function Dashboard() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setUserMenuOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-color/10 text-sm font-bold text-accent-color hover:bg-accent-color/20"
+              className="flex items-center justify-center rounded-full bg-accent-color/10 hover:bg-accent-color/20 transition-colors"
               aria-label="Open settings"
               title="Settings"
+              style={{ width: 44, height: 44 }}
             >
-              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              <Avatar size="sm">
+                <AvatarFallback className="bg-transparent text-accent-color font-bold text-sm">
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
             </button>
           </div>
         </div>
