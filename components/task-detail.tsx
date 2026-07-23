@@ -21,14 +21,15 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium")
   const [saving, setSaving] = useState(false)
 
-  if (!task) return null
-  const t = task
-
   useEffect(() => {
-    setTitle(t.title)
-    setPriority(t.priority)
+    if (!task) return
+    setTitle(task.title)
+    setPriority(task.priority)
     setSaving(false)
   }, [task?.id, task?.title, task?.priority])
+
+  if (!task) return null
+  const t = task
 
   async function handleSave() {
     if (!title.trim()) {
