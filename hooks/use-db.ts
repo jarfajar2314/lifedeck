@@ -3,6 +3,17 @@
 import { useEffect, useState, useCallback } from "react"
 import db, { type Transaction, type Task, type Note, type Category, type Account } from "@/lib/db"
 
+function uid(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16)
+    })
+  }
+}
+
 export function useTransactions(spaceId: string) {
   const [items, setItems] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,7 +32,7 @@ export function useTransactions(spaceId: string) {
   useEffect(() => { refresh() }, [refresh])
 
   const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
-    const id = crypto.randomUUID()
+    const id = uid()
     await db.transactions.add({ ...tx, id, createdAt: new Date() })
     await refresh()
     return id
@@ -48,7 +59,7 @@ export function useTasks(spaceId: string) {
   useEffect(() => { refresh() }, [refresh])
 
   const add = async (task: Omit<Task, "id" | "createdAt">) => {
-    const id = crypto.randomUUID()
+    const id = uid()
     await db.tasks.add({ ...task, id, createdAt: new Date() })
     await refresh()
     return id
@@ -90,7 +101,7 @@ export function useNotes(spaceId: string) {
   useEffect(() => { refresh() }, [refresh])
 
   const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
-    const id = crypto.randomUUID()
+    const id = uid()
     const now = new Date()
     await db.notes.add({ ...note, id, createdAt: now, updatedAt: now })
     await refresh()
