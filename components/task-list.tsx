@@ -96,14 +96,15 @@ export function TaskList({ spaceId, limit }: TaskListProps) {
                   className="h-5 w-5"
                   aria-label={`Mark "${task.title}" as ${task.isCompleted ? "incomplete" : "complete"}`}
                 />
-                <span
+                <button
+                  onClick={() => setEditing(task)}
                   className={cn(
-                    "flex-1 text-sm",
+                    "flex-1 text-left text-sm",
                     task.isCompleted && "text-muted-foreground line-through"
                   )}
                 >
                   {task.title}
-                </span>
+                </button>
                 <span
                   className={cn(
                     "text-[10px] font-medium uppercase tracking-wider",

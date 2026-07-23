@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,10 +24,11 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   if (!task) return null
   const t = task
 
-  function startEdit() {
+  useEffect(() => {
     setTitle(t.title)
     setPriority(t.priority)
-  }
+    setSaving(false)
+  }, [task?.id, task?.title, task?.priority])
 
   async function handleSave() {
     if (!title.trim()) {
@@ -54,7 +55,7 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (v) startEdit() }}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-label="Edit task">
         <SheetHeader>
           <SheetTitle>Edit Task</SheetTitle>
