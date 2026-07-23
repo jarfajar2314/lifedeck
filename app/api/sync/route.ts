@@ -63,7 +63,24 @@ export async function GET(request: Request): Promise<Response> {
     if (!sqlTable) return Response.json({ error: `Unknown table: ${table}` }, { status: 400 })
 
     const colMap = COLUMN_MAP[sqlTable] || {}
-    const rows = await query(pool, `SELECT * FROM "${sqlTable}"`)
+    const userId = session.user.id
+
+    let whereClause = ""
+    const params: unknown[] = []
+    if (sqlTable === "profiles") {
+      whereClause = `WHERE id = $1`
+      params.push(userId)
+    } else if (sqlTable === "space_members") {
+      whereClause = `WHERE user_id = $1`
+      params.push(userId)
+    } else if (sqlTable === "spaces") {
+      whereClause = `WHERE id IN (SELECT space_id FROM space_members WHERE user_id = $1)`
+      params.push(userId)
+    } else if (["transactions", "tasks", "notes", "accounts", "categories"].includes(sqlTable)) {
+      whereClause = `WHERE space_id IN (SELECT space_id FROM space_members WHERE user_id = $1)`
+      params.push(userId)
+    }
+    const rows = await query(pool, `SELECT * FROM "${sqlTable}"${whereClause ? " " + whereClause : ""}`, params)
 
     const mapped = rows.map((r) => {
       const out: Record<string, unknown> = {}
