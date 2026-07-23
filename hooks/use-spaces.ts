@@ -6,7 +6,9 @@ import { uid } from "@/lib/uid"
 
 const API = "/api/data"
 
-const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
+function personalSpaceId(userId: string): string {
+  return `personal-${userId}`
+}
 
 export type SpaceWithRole = Space & { role: "owner" | "member" }
 
@@ -29,7 +31,7 @@ async function mutate(table: string, op: string, data?: Record<string, unknown>,
 
 export function useSpaces(userId?: string) {
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
-  const [currentId, setCurrentIdState] = useState<string>(PERSONAL_SPACE_ID)
+  const [currentId, setCurrentIdState] = useState<string>("")
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
@@ -49,18 +51,29 @@ export function useSpaces(userId?: string) {
 
   useEffect(() => { refresh() }, [refresh])
 
-  const ensurePersonalSpace = useCallback(async () => {
-    const allSpaces = await list<Space>("spaces")
-    const existing = allSpaces.find((s) => s.id === PERSONAL_SPACE_ID)
-    if (!existing) {
-      await mutate("spaces", "add", { id: PERSONAL_SPACE_ID, name: "Personal", inviteCode: "", createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+  useEffect(() => {
+    if (!userId) return
+    const psId = personalSpaceId(userId)
+    const saved = localStorage.getItem("lifedeck-current-space")
+    if (saved && saved !== psId) {
+      setCurrentIdState(psId)
+    } else {
+      setCurrentIdState(psId)
     }
-    if (userId) {
-      const members = await list<SpaceMember>("spaceMembers")
-      const isMember = members.find((m) => m.spaceId === PERSONAL_SPACE_ID && m.userId === userId)
-      if (!isMember) {
-        await mutate("spaceMembers", "add", { id: uid(), spaceId: PERSONAL_SPACE_ID, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-      }
+  }, [userId])
+
+  const ensurePersonalSpace = useCallback(async () => {
+    if (!userId) return
+    const psId = personalSpaceId(userId)
+    const allSpaces = await list<Space>("spaces")
+    const existing = allSpaces.find((s) => s.id === psId)
+    if (!existing) {
+      await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode: "", createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    }
+    const members = await list<SpaceMember>("spaceMembers")
+    const isMember = members.find((m) => m.spaceId === psId && m.userId === userId)
+    if (!isMember) {
+      await mutate("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     }
     await refresh()
   }, [userId, refresh])
@@ -71,11 +84,6 @@ export function useSpaces(userId?: string) {
     setCurrentIdState(id)
     localStorage.setItem("lifedeck-current-space", id)
   }
-
-  useEffect(() => {
-    const saved = localStorage.getItem("lifedeck-current-space")
-    if (saved) setCurrentIdState(saved)
-  }, [])
 
   const createSpace = async (name: string) => {
     const id = uid()

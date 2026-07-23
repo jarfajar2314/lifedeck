@@ -176,8 +176,10 @@ export async function updateSpaceMember(spaceId: string, userId: string, updates
   await mutate("spaceMembers", "update", { ...member, ...updates } as unknown as Record<string, unknown>)
 }
 
-const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
+export function personalSpaceId(userId: string): string {
+  return `personal-${userId}`
+}
 
-export function useSpace(defaultSpaceId = PERSONAL_SPACE_ID) {
+export function useSpace(defaultSpaceId: string) {
   return defaultSpaceId
 }
