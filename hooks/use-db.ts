@@ -12,9 +12,7 @@ export function useTransactions(spaceId: string) {
       .where("spaceId")
       .equals(spaceId)
       .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())),
-    [spaceId],
-    []
+      .then((arr) => arr.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime()))
   )
 
   const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
@@ -25,7 +23,7 @@ export function useTransactions(spaceId: string) {
     return id
   }
 
-  return { items, loading: false, add }
+  return { items: items ?? [], loading: items === undefined, add }
 }
 
 export function useTasks(spaceId: string) {
@@ -34,9 +32,7 @@ export function useTasks(spaceId: string) {
       .where("spaceId")
       .equals(spaceId)
       .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
-    [spaceId],
-    []
+      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
   )
 
   const add = async (task: Omit<Task, "id" | "createdAt">) => {
@@ -63,7 +59,7 @@ export function useTasks(spaceId: string) {
     enqueue({ table: "tasks", op: "delete", recordId: id })
   }
 
-  return { items, loading: false, add, toggle, remove }
+  return { items: items ?? [], loading: items === undefined, add, toggle, remove }
 }
 
 export function useNotes(spaceId: string) {
@@ -72,9 +68,7 @@ export function useNotes(spaceId: string) {
       .where("spaceId")
       .equals(spaceId)
       .toArray()
-      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
-    [spaceId],
-    []
+      .then((arr) => arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
   )
 
   const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
@@ -99,23 +93,21 @@ export function useNotes(spaceId: string) {
     enqueue({ table: "notes", op: "delete", recordId: id })
   }
 
-  return { items, loading: false, add, togglePin, remove }
+  return { items: items ?? [], loading: items === undefined, add, togglePin, remove }
 }
 
 export function useCategories(spaceId: string) {
   return useLiveQuery(
     () => db.categories.where("spaceId").equals(spaceId).toArray(),
-    [spaceId],
-    [] as Category[]
-  )
+    [spaceId]
+  ) ?? []
 }
 
 export function useAccounts(spaceId: string) {
   return useLiveQuery(
     () => db.accounts.where("spaceId").equals(spaceId).toArray(),
-    [spaceId],
-    [] as Account[]
-  )
+    [spaceId]
+  ) ?? []
 }
 
 const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
