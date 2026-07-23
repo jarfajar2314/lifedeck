@@ -9,6 +9,7 @@ type AuthContextValue = {
   session: Session | null
   isPending: boolean
   signOut: () => Promise<void>
+  refresh: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -18,15 +19,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isPending, setIsPending] = useState(true)
 
-  useEffect(() => {
-    authClient.getSession().then((res) => {
-      if (res.data) {
-        setUser(res.data.user)
-        setSession(res.data.session)
-      }
-      setIsPending(false)
-    })
-  }, [])
+  const fetchSession = async () => {
+    const res = await authClient.getSession()
+    if (res.data) {
+      setUser(res.data.user)
+      setSession(res.data.session)
+    } else {
+      setUser(null)
+      setSession(null)
+    }
+    setIsPending(false)
+  }
+
+  useEffect(() => { fetchSession() }, [])
 
   const signOut = async () => {
     await authClient.signOut()
@@ -35,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, isPending, signOut }}>
+    <AuthContext.Provider value={{ user, session, isPending, signOut, refresh: fetchSession }}>
       {children}
     </AuthContext.Provider>
   )

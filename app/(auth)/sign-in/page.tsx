@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
+import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +11,7 @@ import Link from "next/link"
 
 export default function SignInPage() {
   const router = useRouter()
+  const { refresh } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -22,7 +24,10 @@ export default function SignInPage() {
       setError(err.message || "Failed to sign in")
       return
     }
-    if (data) router.push("/")
+    if (data) {
+      await refresh()
+      router.push("/")
+    }
   }
 
   return (
