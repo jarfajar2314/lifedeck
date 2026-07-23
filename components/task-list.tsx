@@ -1,14 +1,17 @@
 "use client"
 
 import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { useTasks } from "@/hooks/use-db"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TaskDetail } from "@/components/task-detail"
-import { Plus, Trash2 } from "lucide-react"
+import { TaskRow } from "@/components/task-row"
+import { Plus, ListChecks } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { haptics } from "@/lib/haptics"
 import type { Task } from "@/lib/db"
 
 type TaskListProps = {
@@ -34,12 +37,33 @@ export function TaskList({ spaceId, limit }: TaskListProps) {
   const handleAdd = async () => {
     if (!newTitle.trim()) return
     await add({ spaceId, title: newTitle.trim(), isCompleted: false, priority })
+    haptics.tap()
     toast("Task added")
     setNewTitle("")
   }
 
+  const handleToggle = (task: Task) => {
+    toggle(task.id)
+    toast(task.isCompleted ? "Task reopened" : "Task completed")
+  }
+
+  const handleDelete = (task: Task) => {
+    remove(task.id)
+    toast("Task deleted")
+  }
+
   if (loading) {
-    return <div className="p-4 text-sm text-muted-foreground" role="status" aria-live="polite">Loading tasks...</div>
+    return (
+      <div className="flex flex-col gap-1" role="status" aria-live="polite" aria-label="Loading tasks">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-3">
+            <Skeleton className="h-5 w-5 shrink-0 rounded-[4px]" />
+            <Skeleton className="h-3.5 flex-1" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -81,50 +105,31 @@ export function TaskList({ spaceId, limit }: TaskListProps) {
         </div>
 
         {displayed.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground" aria-label="No tasks yet">No tasks yet</p>
+          <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground" aria-label="No tasks yet">
+            <ListChecks className="h-5 w-5 opacity-50" aria-hidden="true" />
+            <p>No tasks yet</p>
+          </div>
         ) : (
           <ul className="flex flex-col gap-0.5" aria-label="Task list">
-            {displayed.map((task) => (
-              <li
-                key={task.id}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-secondary/50"
-                onContextMenu={(e) => { e.preventDefault(); setEditing(task) }}
-              >
-                <Checkbox
-                  checked={task.isCompleted}
-                  onCheckedChange={() => { toggle(task.id); toast("Task updated") }}
-                  className="h-5 w-5"
-                  aria-label={`Mark "${task.title}" as ${task.isCompleted ? "incomplete" : "complete"}`}
-                />
-                <button
-                  onClick={() => setEditing(task)}
-                  className={cn(
-                    "flex-1 text-left text-sm",
-                    task.isCompleted && "text-muted-foreground line-through"
-                  )}
+            <AnimatePresence initial={false}>
+              {displayed.map((task, i) => (
+                <motion.li
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.18, delay: i * 0.02 }}
                 >
-                  {task.title}
-                </button>
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                    task.priority === "high" && "bg-red-500/15 text-red-500",
-                    task.priority === "medium" && "bg-yellow-500/15 text-yellow-500",
-                    task.priority === "low" && "bg-green-500/15 text-green-500"
-                  )}
-                  aria-label={`Priority: ${task.priority}`}
-                >
-                  {task.priority}
-                </span>
-                <button
-                  onClick={() => { remove(task.id); toast("Task deleted") }}
-                  className="text-muted-foreground/50 hover:text-destructive"
-                  aria-label={`Delete "${task.title}"`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
+                  <TaskRow
+                    task={task}
+                    onToggle={() => handleToggle(task)}
+                    onDelete={() => handleDelete(task)}
+                    onOpen={() => setEditing(task)}
+                  />
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </ul>
         )}
       </div>

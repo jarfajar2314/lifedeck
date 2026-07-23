@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { useNotes } from "@/hooks/use-db"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { NoteDetail } from "@/components/note-detail"
-import { Plus } from "lucide-react"
+import { Plus, StickyNote } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import type { Note } from "@/lib/db"
@@ -36,7 +38,16 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-muted-foreground" role="status" aria-live="polite">Loading notes...</div>
+    return (
+      <div className="flex flex-col gap-2" role="status" aria-live="polite" aria-label="Loading notes">
+        {[0, 1].map((i) => (
+          <div key={i} className="rounded-xl border border-border p-3">
+            <Skeleton className="h-3.5 w-full mb-2" />
+            <Skeleton className="h-3.5 w-2/3" />
+          </div>
+        ))}
+      </div>
+    )
   }
 
   return (
@@ -51,6 +62,7 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
               className="min-h-[80px] resize-none bg-transparent text-sm outline-none"
               rows={3}
               aria-label="Note content"
+              autoFocus
             />
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAdd} className="flex-1">Save</Button>
@@ -66,25 +78,35 @@ export function NoteList({ spaceId, limit }: NoteListProps) {
         </Button>
 
         {!showInput && displayed.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">No notes yet</p>
+          <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+            <StickyNote className="h-5 w-5 opacity-50" aria-hidden="true" />
+            <p>No notes yet</p>
+          </div>
         )}
 
-        {displayed.map((note) => (
-          <button
-            key={note.id}
-            onClick={() => setSelected(note)}
-            className={cn(
-              "w-full rounded-xl border border-border p-3 text-left transition-colors hover:bg-secondary/50",
-              note.isPinned && "border-accent-color/30 bg-accent-color/5"
-            )}
-            aria-label={note.isPinned ? "Pinned note" : "Note"}
-          >
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.content}</p>
-            <time className="mt-1 block text-[10px] text-muted-foreground" dateTime={new Date(note.createdAt).toISOString()}>
-              {new Date(note.createdAt).toLocaleDateString()}
-            </time>
-          </button>
-        ))}
+        <AnimatePresence initial={false}>
+          {displayed.map((note, i) => (
+            <motion.button
+              key={note.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.18, delay: i * 0.02 }}
+              onClick={() => setSelected(note)}
+              className={cn(
+                "w-full rounded-xl border border-border p-3 text-left transition-colors hover:bg-secondary/50 active:scale-[0.98]",
+                note.isPinned && "border-accent-color/30 bg-accent-color/5"
+              )}
+              aria-label={note.isPinned ? "Pinned note" : "Note"}
+            >
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.content}</p>
+              <time className="mt-1 block text-[10px] text-muted-foreground" dateTime={new Date(note.createdAt).toISOString()}>
+                {new Date(note.createdAt).toLocaleDateString()}
+              </time>
+            </motion.button>
+          ))}
+        </AnimatePresence>
       </div>
 
       <NoteDetail
