@@ -26,6 +26,17 @@ const listeners = new Map<string, Set<Listener>>()
 
 const EMPTY_SNAPSHOT: Snapshot<never> = { items: [], loading: true, error: null }
 
+const API_PATHS: Record<string, string> = {
+  transactions: "/api/transactions",
+  tasks: "/api/tasks",
+  notes: "/api/notes",
+  spaces: "/api/spaces",
+  spaceMembers: "/api/spaces/members",
+  accounts: "/api/accounts",
+  categories: "/api/categories",
+  profiles: "/api/profiles",
+}
+
 function keyOf(table: string, spaceId?: string): string {
   return spaceId ? `${table}:${spaceId}` : table
 }
@@ -49,22 +60,43 @@ function setSnapshot<T>(e: Entry<T>, snapshot: Snapshot<T>): void {
   emit(keyOf(e.table, e.spaceId))
 }
 
+function apiPath(table: string): string {
+  const path = API_PATHS[table]
+  if (!path) throw new Error(`Unknown table: ${table}`)
+  return path
+}
+
 export async function list<T>(table: string, spaceId?: string): Promise<T[]> {
-  const params = new URLSearchParams({ table })
+  const path = apiPath(table)
+  const params = new URLSearchParams()
   if (spaceId) params.set("spaceId", spaceId)
-  const res = await fetch(`/api/data?${params}`, { credentials: "include" })
+  const qs = params.toString()
+  const res = await fetch(qs ? `${path}?${qs}` : path, { credentials: "include" })
   if (!res.ok) throw new Error(`${table} list failed: ${res.status}`)
   const json = await res.json()
   return json.data as T[]
 }
 
 export async function persist(table: string, op: "add" | "update" | "delete", data?: Record<string, unknown>, id?: string): Promise<void> {
-  const res = await fetch("/api/data", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, op, data, id }),
-  })
+  const path = apiPath(table)
+  let res: Response
+  if (op === "delete") {
+    res = await fetch(`${path}/${id}`, { method: "DELETE", credentials: "include" })
+  } else if (op === "add") {
+    res = await fetch(path, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+  } else {
+    res = await fetch(`${path}/${id}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+  }
   if (!res.ok) throw new Error(`${table} ${op} failed: ${res.status}`)
 }
 

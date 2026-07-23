@@ -5,18 +5,6 @@ import type { Space, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 
-function personalSpaceKey(userId: string): string {
-  return `lifedeck-personal-space-${userId}`
-}
-
-function getCachedPersonalSpaceId(userId: string): string | null {
-  return localStorage.getItem(personalSpaceKey(userId))
-}
-
-function setCachedPersonalSpaceId(userId: string, spaceId: string): void {
-  localStorage.setItem(personalSpaceKey(userId), spaceId)
-}
-
 export type SpaceWithRole = Space & { role: "owner" | "member" }
 
 function useTable<T>(table: string) {
@@ -46,46 +34,41 @@ export function useSpaces(userId?: string) {
   )
 
   const [currentId, setCurrentIdState] = useState<string>("")
-  const [bootstrapping, setBootstrapping] = useState(true)
+  const [initializing, setInitializing] = useState(true)
 
-  const ensurePersonalSpace = useCallback(async () => {
-    if (!userId) return
-    try {
-      await store.persist("profiles", "add", {
-        id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald",
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      })
-    } catch {}
+  useEffect(() => {
+    if (!userId || spacesLoading) return
 
-    let psId = getCachedPersonalSpaceId(userId)
-    if (!psId) {
-      psId = uid()
-      setCachedPersonalSpaceId(userId, psId)
-    }
+    const initCurrent = async () => {
+      const saved = localStorage.getItem("lifedeck-current-space")
+      if (saved && spaces.find((s) => s.id === saved)) {
+        setCurrentIdState(saved)
+        setInitializing(false)
+        return
+      }
 
-    const existingSpaces = await store.list<Space>("spaces")
-    const existing = existingSpaces.find((s) => s.id === psId)
-    if (!existing) {
+      const personal = spaces.find((s) => s.personal)
+      if (personal) {
+        setCurrentIdState(personal.id)
+        localStorage.setItem("lifedeck-current-space", personal.id)
+        setInitializing(false)
+        return
+      }
+
+      const psId = uid()
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       try {
-        await store.persist("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() })
-      } catch {}
-    }
-    const existingMembers = await store.list<SpaceMember>("spaceMembers")
-    const isMember = existingMembers.find((m) => m.spaceId === psId && m.userId === userId)
-    if (!isMember) {
-      try {
+        await store.persist("spaces", "add", { id: psId, name: "Personal", personal: true, inviteCode, createdAt: new Date().toISOString() })
         await store.persist("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() })
+        store.invalidate(["spaces", "spaceMembers"])
+        setCurrentIdState(psId)
+        localStorage.setItem("lifedeck-current-space", psId)
       } catch {}
+      setInitializing(false)
     }
 
-    store.invalidate(["spaces", "spaceMembers", "profiles"])
-    localStorage.removeItem("lifedeck-current-space")
-    setCurrentIdState(psId)
-    setBootstrapping(false)
-  }, [userId])
-
-  useEffect(() => { ensurePersonalSpace() }, [ensurePersonalSpace])
+    initCurrent()
+  }, [userId, spaces, spacesLoading])
 
   const setCurrentId = useCallback((id: string) => {
     setCurrentIdState(id)
@@ -95,7 +78,7 @@ export function useSpaces(userId?: string) {
   const createSpace = useCallback(async (name: string) => {
     const id = uid()
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const space = { id, name, inviteCode, createdAt: new Date().toISOString() } as unknown as Space
+    const space = { id, name, inviteCode, personal: false, createdAt: new Date().toISOString() } as unknown as Space
     await store.mutateOptimistic<Space>("spaces", undefined, "add", (items) => ({
       items: [...items, space],
       record: space as unknown as Record<string, unknown>,
@@ -146,7 +129,7 @@ export function useSpaces(userId?: string) {
     spaces,
     currentId,
     setCurrentId,
-    loading: bootstrapping || spacesLoading,
+    loading: initializing || spacesLoading,
     createSpace,
     joinSpace,
     regenerateInviteCode,
