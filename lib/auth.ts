@@ -9,45 +9,53 @@ const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")
   .map((s) => s.trim())
   .filter(Boolean)
 
+function baseConfig(database: unknown) {
+  return {
+    database,
+    emailAndPassword: { enabled: true } as const,
+    trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:3000", ...trustedOrigins],
+  }
+}
+
 async function initAuth() {
   if (!process.env.DATABASE_URL) {
-    return betterAuth({
-      database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
-      emailAndPassword: { enabled: true },
-      trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:3000", ...trustedOrigins],
-    })
+    return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
   }
 
   const raw = process.env.DATABASE_URL
   if (!raw.startsWith("postgresql://") && !raw.startsWith("postgres://")) {
-    throw new Error(
-      "DATABASE_URL must start with postgresql:// or postgres://\n" +
-      "Expected: postgresql://user:password@host:5432/database?sslmode=require"
+    console.warn(
+      "[LifeDeck] Invalid DATABASE_URL format. Expected: postgresql://user:pass@host:5432/db?sslmode=require\n" +
+      "Falling back to memory adapter (data lost on restart)."
     )
+    return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
   }
 
   const url = new URL(raw)
   const ssl = url.searchParams.get("sslmode") !== "disable"
 
-  let host = url.hostname
-  const ips = await dns.resolve4(host).catch(() => [])
-  if (ips.length > 0) host = ips[0]
+  const ips = await dns.resolve4(url.hostname).catch(() => [])
+  if (ips.length === 0) {
+    console.warn(
+      `[LifeDeck] No IPv4 address found for ${url.hostname}. ` +
+      "Supabase direct connections are IPv6-only by default.\n" +
+      "Enable the IPv4 add-on in Supabase dashboard or use the session pooler (port 6543).\n" +
+      "Falling back to memory adapter (data lost on restart)."
+    )
+    return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
+  }
 
-  return betterAuth({
-    database: new PostgresDialect({
-      pool: new Pool({
-        host,
-        port: Number(url.port) || 5432,
-        database: url.pathname.replace(/^\//, ""),
-        user: url.username,
-        password: url.password,
-        max: 10,
-        ssl: ssl ? { rejectUnauthorized: false } : false,
-      }),
+  return betterAuth(baseConfig(new PostgresDialect({
+    pool: new Pool({
+      host: ips[0],
+      port: Number(url.port) || 5432,
+      database: url.pathname.replace(/^\//, ""),
+      user: url.username,
+      password: url.password,
+      max: 10,
+      ssl: ssl ? { rejectUnauthorized: false } : false,
     }),
-    emailAndPassword: { enabled: true },
-    trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:3000", ...trustedOrigins],
-  })
+  })))
 }
 
 export const auth = await initAuth()
