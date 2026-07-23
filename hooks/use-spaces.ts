@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import db, { type Space, type SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
+import { enqueue, enqueueMany } from "@/lib/sync"
 
 export type SpaceWithRole = Space & { role: "owner" | "member" }
 
@@ -27,18 +28,22 @@ export function useSpaces(userId?: string) {
   useEffect(() => { refresh() }, [refresh])
 
   const ensurePersonalSpace = useCallback(async () => {
+    const ops: { table: string; op: "upsert" | "delete"; data?: Record<string, unknown>; recordId?: string }[] = []
     const existing = await db.spaces.get("personal")
     if (!existing) {
-      await db.spaces.put({ id: "personal", name: "Personal", inviteCode: "", createdAt: new Date() })
+      const data = { id: "personal", name: "Personal", inviteCode: "", createdAt: new Date() }
+      await db.spaces.put(data)
+      ops.push({ table: "spaces", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: "personal" })
     }
     if (userId) {
       const isMember = await db.spaceMembers.where({ spaceId: "personal", userId }).first()
       if (!isMember) {
-        await db.spaceMembers.put({
-          id: uid(), spaceId: "personal", userId, role: "owner", joinedAt: new Date(),
-        })
+        const data = { id: uid(), spaceId: "personal", userId, role: "owner" as const, joinedAt: new Date() }
+        await db.spaceMembers.put(data)
+        ops.push({ table: "spaceMembers", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: data.id })
       }
     }
+    if (ops.length > 0) enqueueMany(ops)
     await refresh()
   }, [userId, refresh])
 
@@ -57,16 +62,17 @@ export function useSpaces(userId?: string) {
   const createSpace = async (name: string) => {
     const id = uid()
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    await db.spaces.add({ id, name, inviteCode, createdAt: new Date() })
+    const spaceData = { id, name, inviteCode, createdAt: new Date() }
+    await db.spaces.add(spaceData)
+    const ops: { table: string; op: "upsert"; data: Record<string, unknown>; recordId: string }[] = [
+      { table: "spaces", op: "upsert", data: spaceData as unknown as Record<string, unknown>, recordId: id },
+    ]
     if (userId) {
-      await db.spaceMembers.add({
-        id: uid(),
-        spaceId: id,
-        userId,
-        role: "owner",
-        joinedAt: new Date(),
-      })
+      const memberData = { id: uid(), spaceId: id, userId, role: "owner" as const, joinedAt: new Date() }
+      await db.spaceMembers.add(memberData)
+      ops.push({ table: "spaceMembers", op: "upsert", data: memberData as unknown as Record<string, unknown>, recordId: memberData.id })
     }
+    enqueueMany(ops)
     await refresh()
     setCurrentId(id)
     return { id, inviteCode }
@@ -80,13 +86,9 @@ export function useSpaces(userId?: string) {
         .where({ spaceId: space.id, userId })
         .first()
       if (!existing) {
-        await db.spaceMembers.add({
-          id: uid(),
-          spaceId: space.id,
-          userId,
-          role: "member",
-          joinedAt: new Date(),
-        })
+        const data = { id: uid(), spaceId: space.id, userId, role: "member" as const, joinedAt: new Date() }
+        await db.spaceMembers.add(data)
+        enqueue({ table: "spaceMembers", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: data.id })
       }
     }
     await refresh()
@@ -97,6 +99,8 @@ export function useSpaces(userId?: string) {
   const regenerateInviteCode = async (spaceId: string) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
     await db.spaces.update(spaceId, { inviteCode: code })
+    const space = await db.spaces.get(spaceId)
+    if (space) enqueue({ table: "spaces", op: "upsert", data: space as unknown as Record<string, unknown>, recordId: spaceId })
     await refresh()
     return code
   }

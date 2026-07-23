@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import db, { type Transaction, type Task, type Note, type Category, type Account } from "@/lib/db"
 import { uid } from "@/lib/uid"
+import { enqueue } from "@/lib/sync"
 
 export function useTransactions(spaceId: string) {
   const [items, setItems] = useState<Transaction[]>([])
@@ -23,7 +24,9 @@ export function useTransactions(spaceId: string) {
 
   const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
     const id = uid()
-    await db.transactions.add({ ...tx, id, createdAt: new Date() })
+    const data = { ...tx, id, createdAt: new Date() }
+    await db.transactions.add(data)
+    enqueue({ table: "transactions", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
     await refresh()
     return id
   }
@@ -50,7 +53,9 @@ export function useTasks(spaceId: string) {
 
   const add = async (task: Omit<Task, "id" | "createdAt">) => {
     const id = uid()
-    await db.tasks.add({ ...task, id, createdAt: new Date() })
+    const data = { ...task, id, createdAt: new Date() }
+    await db.tasks.add(data)
+    enqueue({ table: "tasks", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
     await refresh()
     return id
   }
@@ -58,15 +63,18 @@ export function useTasks(spaceId: string) {
   const toggle = async (id: string) => {
     const task = await db.tasks.get(id)
     if (!task) return
-    await db.tasks.update(id, {
+    const updates = {
       isCompleted: !task.isCompleted,
       completedAt: !task.isCompleted ? new Date() : undefined,
-    })
+    }
+    await db.tasks.update(id, updates)
+    enqueue({ table: "tasks", op: "upsert", data: { ...task, ...updates } as unknown as Record<string, unknown>, recordId: id })
     await refresh()
   }
 
   const remove = async (id: string) => {
     await db.tasks.delete(id)
+    enqueue({ table: "tasks", op: "delete", recordId: id })
     await refresh()
   }
 
@@ -93,7 +101,9 @@ export function useNotes(spaceId: string) {
   const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
     const id = uid()
     const now = new Date()
-    await db.notes.add({ ...note, id, createdAt: now, updatedAt: now })
+    const data = { ...note, id, createdAt: now, updatedAt: now }
+    await db.notes.add(data)
+    enqueue({ table: "notes", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: id })
     await refresh()
     return id
   }
@@ -101,12 +111,15 @@ export function useNotes(spaceId: string) {
   const togglePin = async (id: string) => {
     const note = await db.notes.get(id)
     if (!note) return
-    await db.notes.update(id, { isPinned: !note.isPinned, updatedAt: new Date() })
+    const updates = { isPinned: !note.isPinned, updatedAt: new Date() }
+    await db.notes.update(id, updates)
+    enqueue({ table: "notes", op: "upsert", data: { ...note, ...updates } as unknown as Record<string, unknown>, recordId: id })
     await refresh()
   }
 
   const remove = async (id: string) => {
     await db.notes.delete(id)
+    enqueue({ table: "notes", op: "delete", recordId: id })
     await refresh()
   }
 

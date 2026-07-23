@@ -1,8 +1,9 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useRef } from "react"
 import { authClient } from "@/lib/auth-client"
 import db from "@/lib/db"
+import { pullAll } from "@/lib/sync"
 import type { Session, User } from "better-auth"
 
 type AuthContextValue = {
@@ -34,8 +35,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { fetchSession() }, [])
 
+  useEffect(() => {
+    if (user) { pullAll() }
+  }, [user?.id])
+
+  const prevUserId = useRef(user?.id)
+  useEffect(() => {
+    if (prevUserId.current && prevUserId.current !== user?.id) {
+      Promise.all(db.tables.map((t) => t.clear())).catch(() => {})
+    }
+    prevUserId.current = user?.id
+  }, [user?.id])
+
   const signOut = async () => {
-    try { await Promise.all(db.tables.map((t) => t.clear())) } catch {}
     await authClient.signOut()
     setUser(null)
     setSession(null)

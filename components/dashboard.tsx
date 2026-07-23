@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
+import { useMultiSync } from "@/hooks/use-realtime"
 import { LogOut, Wallet, ListChecks, StickyNote, Plus, Wifi, WifiOff } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { toast } from "sonner"
@@ -23,6 +24,8 @@ export function Dashboard() {
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
+
+  useMultiSync(currentId)
 
   const { add: addTransaction } = useTransactions(currentId)
   const { add: addTask } = useTasks(currentId)
