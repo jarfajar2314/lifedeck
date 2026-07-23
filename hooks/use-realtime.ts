@@ -1,20 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { supabase } from "@/lib/supabase"
-import { pullTable } from "@/lib/sync"
-import db from "@/lib/db"
-
-const DEXIE_TABLE: Record<string, string> = {
-  transactions: "transactions",
-  tasks: "tasks",
-  notes: "notes",
-  spaceMembers: "spaceMembers",
-}
-
-function getDexieTable(table: string): string | null {
-  return DEXIE_TABLE[table] || null
-}
+import { pullAll } from "@/lib/sync"
 
 export function useMultiSync(spaceId: string) {
   const mountedRef = useRef(true)
@@ -25,31 +12,16 @@ export function useMultiSync(spaceId: string) {
   }, [])
 
   useEffect(() => {
-    if (!supabase || !spaceId) return
+    if (!spaceId) return
 
-    const channel = supabase.channel("cross-device-sync")
+    function poll() {
+      if (document.hidden || !mountedRef.current) return
+      pullAll()
+    }
 
-    channel.on("broadcast", { event: "sync" }, async (payload) => {
-      if (!mountedRef.current) return
-      const tables: string[] = payload.payload?.tables ?? []
-      for (const table of tables) {
-        const dexieTable = getDexieTable(table)
-        if (!dexieTable) continue
-        try {
-          const rows = await pullTable(table)
-          if (rows.length === 0) continue
-          const t = (db as any)[dexieTable]
-          for (const row of rows) {
-            await t.put(row)
-          }
-        } catch (err) {
-          console.warn(`[realtime] pull ${table} failed:`, err)
-        }
-      }
-    })
+    poll()
+    const id = setInterval(poll, 10_000)
 
-    channel.subscribe()
-
-    return () => { supabase.removeChannel(channel) }
+    return () => { clearInterval(id) }
   }, [spaceId])
 }
