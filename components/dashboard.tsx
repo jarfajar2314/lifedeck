@@ -1,51 +1,52 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback } from "react"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { TaskList } from "@/components/task-list"
 import { NoteList } from "@/components/note-list"
 import { CommandBar } from "@/components/command-bar"
 import { ExpenseKeypad } from "@/components/expense-keypad"
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer"
+import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
 import { useTransactions, useTasks, useNotes } from "@/hooks/use-db"
+import { useSpaces } from "@/hooks/use-spaces"
 import { LogOut, Wallet, ListChecks, StickyNote, Plus } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { toast } from "sonner"
+import { useState } from "react"
 
 export function Dashboard() {
   const { user, signOut } = useAuth()
   const { mode, accent, setMode, setAccent } = useTheme()
-  const [spaceId, setSpaceId] = useState("personal")
+  const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [keypadOpen, setKeypadOpen] = useState(false)
 
-  const { add: addTransaction } = useTransactions(spaceId)
-  const { add: addTask } = useTasks(spaceId)
-  const { add: addNote } = useNotes(spaceId)
+  const { add: addTransaction } = useTransactions(currentId)
+  const { add: addTask } = useTasks(currentId)
+  const { add: addNote } = useNotes(currentId)
 
-  const handleExpense = (amount: number, note?: string) => {
-    addTransaction({
-      spaceId,
-      amount,
-      type: "expense",
-      note,
-      loggedAt: new Date(),
-      createdBy: user?.id,
-    })
-    toast(`${note || "Expense"}: -Rp${amount.toLocaleString("id-ID")}`)
-  }
+  const handleExpense = useCallback((amount: number, note?: string) => {
+    addTransaction({ spaceId: currentId, amount, type: "expense", note, loggedAt: new Date(), createdBy: user?.id })
+    toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
+  }, [currentId, user?.id, addTransaction])
 
-  const handleTask = (title: string) => {
-    addTask({ spaceId, title, isCompleted: false, priority: "medium" })
+  const handleTask = useCallback((title: string) => {
+    addTask({ spaceId: currentId, title, isCompleted: false, priority: "medium" })
     toast("Task added")
-  }
+  }, [currentId, addTask])
 
-  const handleNote = (content: string) => {
-    addNote({ spaceId, content, tags: [], isPinned: false })
+  const handleNote = useCallback((content: string) => {
+    addNote({ spaceId: currentId, content, tags: [], isPinned: false })
     toast("Note saved")
-  }
+  }, [currentId, addNote])
+
+  const handleKeypadExpense = useCallback((amount: number) => {
+    addTransaction({ spaceId: currentId, amount, type: "expense", loggedAt: new Date(), createdBy: user?.id })
+    toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
+    setKeypadOpen(false)
+  }, [currentId, user?.id, addTransaction])
 
   return (
     <div className="flex min-h-dvh flex-col pb-24">
@@ -53,7 +54,14 @@ export function Dashboard() {
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold tracking-tight">LifeDeck</h1>
-            <SpaceSelector currentId={spaceId} onSwitch={setSpaceId} />
+            <SpaceSelector
+              spaces={spaces}
+              currentId={currentId}
+              onSwitch={setCurrentId}
+              onCreateSpace={createSpace}
+              onJoinSpace={joinSpace}
+              onRegenerateCode={regenerateInviteCode}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -95,7 +103,7 @@ export function Dashboard() {
             </button>
           </CardHeader>
           <CardContent>
-            <TransactionList spaceId={spaceId} limit={5} />
+            <TransactionList spaceId={currentId} limit={5} />
           </CardContent>
         </Card>
 
@@ -106,7 +114,7 @@ export function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TaskList spaceId={spaceId} limit={8} />
+            <TaskList spaceId={currentId} limit={8} />
           </CardContent>
         </Card>
 
@@ -117,7 +125,7 @@ export function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <NoteList spaceId={spaceId} limit={5} />
+            <NoteList spaceId={currentId} limit={5} />
           </CardContent>
         </Card>
       </main>
@@ -130,20 +138,7 @@ export function Dashboard() {
 
       <Drawer open={keypadOpen} onOpenChange={setKeypadOpen}>
         <DrawerContent>
-          <ExpenseKeypad
-            onAmount={(amount) => {
-              addTransaction({
-                spaceId,
-                amount,
-                type: "expense",
-                loggedAt: new Date(),
-                createdBy: user?.id,
-              })
-              toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
-              setKeypadOpen(false)
-            }}
-            onClose={() => setKeypadOpen(false)}
-          />
+          <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} />
         </DrawerContent>
       </Drawer>
     </div>

@@ -2,17 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import db, { type Transaction, type Task, type Note, type Category, type Account } from "@/lib/db"
-
-function uid(): string {
-  try {
-    return crypto.randomUUID()
-  } catch {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16)
-    })
-  }
-}
+import { uid } from "@/lib/uid"
 
 export function useTransactions(spaceId: string) {
   const [items, setItems] = useState<Transaction[]>([])
