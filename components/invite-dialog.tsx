@@ -22,7 +22,16 @@ export function InviteDialog({ open, onOpenChange, inviteCode, currentSpaceName,
   const [regenerating, setRegenerating] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(inviteCode)
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(inviteCode)
+    } else {
+      const el = document.createElement("textarea")
+      el.value = inviteCode
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand("copy")
+      document.body.removeChild(el)
+    }
     toast("Invite code copied")
   }
 

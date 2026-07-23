@@ -27,17 +27,15 @@ export function useSpaces(userId?: string) {
   useEffect(() => { refresh() }, [refresh])
 
   const ensurePersonalSpace = useCallback(async () => {
-    const existing = await db.spaces.where("name").equals("Personal").first()
+    const existing = await db.spaces.get("personal")
     if (!existing) {
-      const id = "personal"
-      await db.spaces.add({ id, name: "Personal", inviteCode: "", createdAt: new Date() })
-      if (userId) {
+      await db.spaces.add({ id: "personal", name: "Personal", inviteCode: "", createdAt: new Date() })
+    }
+    if (userId) {
+      const isMember = await db.spaceMembers.where({ spaceId: "personal", userId }).first()
+      if (!isMember) {
         await db.spaceMembers.add({
-          id: uid(),
-          spaceId: id,
-          userId,
-          role: "owner",
-          joinedAt: new Date(),
+          id: uid(), spaceId: "personal", userId, role: "owner", joinedAt: new Date(),
         })
       }
     }
