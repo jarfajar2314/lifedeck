@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth-provider"
 import { useTheme } from "@/components/theme-provider"
 import { useSpaces } from "@/hooks/use-spaces"
-import { useAccounts, useProfile, updateProfile, updateSpaceMember } from "@/hooks/use-db"
+import { useAccounts, useProfile, useSpaceMembers, updateProfile, updateSpaceMember } from "@/hooks/use-db"
 import { toast } from "sonner"
 import { Copy, Check, LogOut, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -27,20 +27,10 @@ export function UserMenu({ open, onOpenChange, currentSpaceId }: UserMenuProps) 
   const { spaces, regenerateInviteCode } = useSpaces(user?.id)
   const accounts = useAccounts(currentSpaceId)
   const profile = useProfile(user?.id)
-  const [defaultAccountId, setDefaultAccountId] = useState<string | undefined>()
+  const members = useSpaceMembers()
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    if (!user?.id) return
-    fetch("/api/data?table=spaceMembers", { credentials: "include" })
-      .then((r) => r.json())
-      .then((json) => {
-        const members = json.data as { id: string; spaceId: string; userId: string; defaultAccountId?: string }[]
-        const m = members.find((x) => x.spaceId === currentSpaceId && x.userId === user.id)
-        setDefaultAccountId(m?.defaultAccountId)
-      })
-      .catch(() => {})
-  }, [currentSpaceId, user?.id, open])
+  const defaultAccountId = members.find((m) => m.spaceId === currentSpaceId && m.userId === user?.id)?.defaultAccountId
 
   const currentSpace = spaces.find((s) => s.id === currentSpaceId)
   const currentMember = currentSpace?.role

@@ -1,10 +1,9 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react"
 import type { Space, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
-
-const API = "/api/data"
+import * as store from "@/lib/data-store"
 
 function personalSpaceKey(userId: string): string {
   return `lifedeck-personal-space-${userId}`
@@ -20,48 +19,43 @@ function setCachedPersonalSpaceId(userId: string, spaceId: string): void {
 
 export type SpaceWithRole = Space & { role: "owner" | "member" }
 
-async function list<T>(table: string): Promise<T[]> {
-  const res = await fetch(`${API}?table=${table}`, { credentials: "include" })
-  if (!res.ok) throw new Error(`${table} list failed: ${res.status}`)
-  const json = await res.json()
-  return json.data as T[]
-}
-
-async function mutate(table: string, op: string, data?: Record<string, unknown>, id?: string): Promise<void> {
-  const res = await fetch(API, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, op, data, id }),
-  })
-  if (!res.ok) throw new Error(`${table} ${op} failed: ${res.status}`)
+function useTable<T>(table: string) {
+  const subscribeFn = useCallback((cb: () => void) => store.subscribe(table, undefined, cb), [table])
+  return useSyncExternalStore(
+    subscribeFn,
+    () => store.getSnapshot<T>(table, undefined),
+    () => store.getServerSnapshot<T>()
+  )
 }
 
 export function useSpaces(userId?: string) {
-  const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
-  const [currentId, setCurrentIdState] = useState<string>("")
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    try {
-      const [allSpaces, members] = await Promise.all([list<Space>("spaces"), list<SpaceMember>("spaceMembers")])
-      const enriched: SpaceWithRole[] = allSpaces.map((s) => ({
-        ...s,
-        role: (members.find((m) => m.spaceId === s.id)?.role ?? "member") as "owner" | "member",
-      }))
-      setSpaces(enriched)
-    } catch (err) {
-      console.error("[spaces] refresh error:", err)
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => {
+    store.ensureLoaded<Space>("spaces", undefined)
+    store.ensureLoaded<SpaceMember>("spaceMembers", undefined)
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
+  const { items: allSpaces, loading: spacesLoading } = useTable<Space>("spaces")
+  const { items: members } = useTable<SpaceMember>("spaceMembers")
+
+  const spaces: SpaceWithRole[] = useMemo(
+    () => allSpaces.map((s) => ({
+      ...s,
+      role: (members.find((m) => m.spaceId === s.id)?.role ?? "member") as "owner" | "member",
+    })),
+    [allSpaces, members]
+  )
+
+  const [currentId, setCurrentIdState] = useState<string>("")
+  const [bootstrapping, setBootstrapping] = useState(true)
 
   const ensurePersonalSpace = useCallback(async () => {
     if (!userId) return
-    try { await mutate("profiles", "add", { id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>) } catch {}
+    try {
+      await store.persist("profiles", "add", {
+        id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald",
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      })
+    } catch {}
 
     let psId = getCachedPersonalSpaceId(userId)
     if (!psId) {
@@ -69,67 +63,92 @@ export function useSpaces(userId?: string) {
       setCachedPersonalSpaceId(userId, psId)
     }
 
-    const allSpaces = await list<Space>("spaces")
-    const existing = allSpaces.find((s) => s.id === psId)
+    const existingSpaces = await store.list<Space>("spaces")
+    const existing = existingSpaces.find((s) => s.id === psId)
     if (!existing) {
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       try {
-        await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+        await store.persist("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() })
       } catch {}
     }
-    const members = await list<SpaceMember>("spaceMembers")
-    const isMember = members.find((m) => m.spaceId === psId && m.userId === userId)
+    const existingMembers = await store.list<SpaceMember>("spaceMembers")
+    const isMember = existingMembers.find((m) => m.spaceId === psId && m.userId === userId)
     if (!isMember) {
       try {
-        await mutate("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+        await store.persist("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() })
       } catch {}
     }
-    await refresh()
+
+    store.invalidate(["spaces", "spaceMembers", "profiles"])
     localStorage.removeItem("lifedeck-current-space")
     setCurrentIdState(psId)
-  }, [userId, refresh])
+    setBootstrapping(false)
+  }, [userId])
 
   useEffect(() => { ensurePersonalSpace() }, [ensurePersonalSpace])
 
-  const setCurrentId = (id: string) => {
+  const setCurrentId = useCallback((id: string) => {
     setCurrentIdState(id)
     localStorage.setItem("lifedeck-current-space", id)
-  }
+  }, [])
 
-  const createSpace = async (name: string) => {
+  const createSpace = useCallback(async (name: string) => {
     const id = uid()
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    await mutate("spaces", "add", { id, name, inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    const space = { id, name, inviteCode, createdAt: new Date().toISOString() } as unknown as Space
+    await store.mutateOptimistic<Space>("spaces", undefined, "add", (items) => ({
+      items: [...items, space],
+      record: space as unknown as Record<string, unknown>,
+    }))
     if (userId) {
-      await mutate("spaceMembers", "add", { id: uid(), spaceId: id, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      const member = { id: uid(), spaceId: id, userId, role: "owner" as const, joinedAt: new Date().toISOString() } as unknown as SpaceMember
+      await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "add", (items) => ({
+        items: [...items, member],
+        record: member as unknown as Record<string, unknown>,
+      }))
     }
-    await refresh()
     setCurrentId(id)
     return { id, inviteCode }
-  }
+  }, [userId, setCurrentId])
 
-  const joinSpace = async (inviteCode: string) => {
-    const allSpaces = await list<Space>("spaces")
-    const space = allSpaces.find((s) => s.inviteCode === inviteCode.toUpperCase())
+  const joinSpace = useCallback(async (inviteCode: string) => {
+    const allSpacesList = await store.list<Space>("spaces")
+    const space = allSpacesList.find((s) => s.inviteCode === inviteCode.toUpperCase())
     if (!space) return null
     if (userId) {
-      const members = await list<SpaceMember>("spaceMembers")
-      const existing = members.find((m) => m.spaceId === space.id && m.userId === userId)
+      const existingMembers = await store.list<SpaceMember>("spaceMembers")
+      const existing = existingMembers.find((m) => m.spaceId === space.id && m.userId === userId)
       if (!existing) {
-        await mutate("spaceMembers", "add", { id: uid(), spaceId: space.id, userId, role: "member", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+        const member = { id: uid(), spaceId: space.id, userId, role: "member" as const, joinedAt: new Date().toISOString() } as unknown as SpaceMember
+        await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "add", (items) => ({
+          items: [...items, member],
+          record: member as unknown as Record<string, unknown>,
+        }))
       }
     }
-    await refresh()
+    store.invalidate(["spaces"])
     setCurrentId(space.id)
     return space
-  }
+  }, [userId, setCurrentId])
 
-  const regenerateInviteCode = async (spaceId: string) => {
+  const regenerateInviteCode = useCallback(async (spaceId: string) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
-    await mutate("spaces", "update", { id: spaceId, inviteCode: code } as unknown as Record<string, unknown>)
-    await refresh()
+    await store.mutateOptimistic<Space>("spaces", undefined, "update", (items) => {
+      const existing = items.find((s) => s.id === spaceId)
+      if (!existing) return { items }
+      const merged = { ...existing, inviteCode: code }
+      return { items: items.map((s) => (s.id === spaceId ? merged : s)), record: merged as unknown as Record<string, unknown> }
+    })
     return code
-  }
+  }, [])
 
-  return { spaces, currentId, setCurrentId, loading, createSpace, joinSpace, regenerateInviteCode }
+  return {
+    spaces,
+    currentId,
+    setCurrentId,
+    loading: bootstrapping || spacesLoading,
+    createSpace,
+    joinSpace,
+    regenerateInviteCode,
+  }
 }

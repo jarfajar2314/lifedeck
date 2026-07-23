@@ -1,187 +1,233 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useCallback, useEffect, useSyncExternalStore } from "react"
+import { toast } from "sonner"
 import type { Transaction, Task, Note, Category, Account, Profile, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
+import * as store from "@/lib/data-store"
 
-const API = "/api/data"
-
-async function list<T>(table: string, spaceId?: string): Promise<T[]> {
-  const params = new URLSearchParams({ table })
-  if (spaceId) params.set("spaceId", spaceId)
-  const res = await fetch(`${API}?${params}`, { credentials: "include" })
-  if (!res.ok) throw new Error(`${table} list failed: ${res.status}`)
-  const json = await res.json()
-  return json.data as T[]
-}
-
-async function mutate(table: string, op: string, data?: Record<string, unknown>, id?: string): Promise<void> {
-  const res = await fetch(API, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, op, data, id }),
-  })
-  if (!res.ok) throw new Error(`${table} ${op} failed: ${res.status}`)
-}
-
-function useList<T>(table: string, spaceId: string | undefined) {
-  const [items, setItems] = useState<T[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await list<T>(table, spaceId)
-      setItems(data)
-    } catch (err) {
-      console.error(`[${table}] list error:`, err)
-    } finally {
-      setLoading(false)
-    }
-  }, [table, spaceId])
-
-  useEffect(() => { refresh() }, [refresh])
-
+function useTable<T>(table: string, spaceId?: string) {
   useEffect(() => {
-    const handler = () => {
-      list<T>(table, spaceId).then(setItems).catch(() => {})
-    }
-    window.addEventListener("data-refresh", handler)
-    return () => window.removeEventListener("data-refresh", handler)
+    store.ensureLoaded<T>(table, spaceId)
   }, [table, spaceId])
 
-  return { items, loading, refresh }
+  const subscribeFn = useCallback(
+    (cb: () => void) => store.subscribe(table, spaceId, cb),
+    [table, spaceId]
+  )
+
+  return useSyncExternalStore(
+    subscribeFn,
+    () => store.getSnapshot<T>(table, spaceId),
+    () => store.getServerSnapshot<T>()
+  )
 }
+
+const GENERIC_SAVE_ERROR = "Couldn't save. Please try again."
+const GENERIC_DELETE_ERROR = "Couldn't delete. Please try again."
 
 export function useTransactions(spaceId: string) {
-  const { items, loading, refresh } = useList<Transaction>("transactions", spaceId)
+  const { items, loading, error } = useTable<Transaction>("transactions", spaceId)
 
-  const add = async (tx: Omit<Transaction, "id" | "createdAt">) => {
+  const add = useCallback(async (tx: Omit<Transaction, "id" | "createdAt">) => {
     const id = uid()
-    await mutate("transactions", "add", { ...tx, id, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-    await refresh()
+    const record = { ...tx, id, createdAt: new Date().toISOString() } as unknown as Transaction
+    try {
+      await store.mutateOptimistic<Transaction>("transactions", spaceId, "add", (items) => ({
+        items: [...items, record],
+        record: record as unknown as Record<string, unknown>,
+      }))
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+      throw new Error("add failed")
+    }
     return id
-  }
+  }, [spaceId])
 
-  const update = async (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => {
-    const existing = items.find((i) => i.id === id)
-    if (!existing) return
-    await mutate("transactions", "update", { ...existing, ...updates } as unknown as Record<string, unknown>)
-    await refresh()
-  }
+  const update = useCallback(async (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => {
+    try {
+      await store.mutateOptimistic<Transaction>("transactions", spaceId, "update", (items) => {
+        const existing = items.find((i) => i.id === id)
+        if (!existing) return { items }
+        const merged = { ...existing, ...updates }
+        return { items: items.map((i) => (i.id === id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+      })
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+    }
+  }, [spaceId])
 
-  const remove = async (id: string) => {
-    await mutate("transactions", "delete", undefined, id)
-    await refresh()
-  }
+  const remove = useCallback(async (id: string) => {
+    try {
+      await store.mutateOptimistic<Transaction>("transactions", spaceId, "delete", (items) => ({
+        items: items.filter((i) => i.id !== id),
+        id,
+      }))
+    } catch {
+      toast.error(GENERIC_DELETE_ERROR)
+    }
+  }, [spaceId])
 
   const sorted = [...items].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
-  return { items: sorted, loading, add, update, remove }
+  return { items: sorted, loading, error, add, update, remove }
 }
 
 export function useTasks(spaceId: string) {
-  const { items, loading, refresh } = useList<Task>("tasks", spaceId)
+  const { items, loading, error } = useTable<Task>("tasks", spaceId)
 
-  const add = async (task: Omit<Task, "id" | "createdAt">) => {
+  const add = useCallback(async (task: Omit<Task, "id" | "createdAt">) => {
     const id = uid()
-    await mutate("tasks", "add", { ...task, id, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-    await refresh()
+    const record = { ...task, id, createdAt: new Date().toISOString() } as unknown as Task
+    try {
+      await store.mutateOptimistic<Task>("tasks", spaceId, "add", (items) => ({
+        items: [...items, record],
+        record: record as unknown as Record<string, unknown>,
+      }))
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+      throw new Error("add failed")
+    }
     return id
-  }
+  }, [spaceId])
 
-  const toggle = async (id: string) => {
-    const task = items.find((i) => i.id === id)
-    if (!task) return
-    const updates = { isCompleted: !task.isCompleted, completedAt: !task.isCompleted ? new Date().toISOString() : undefined }
-    await mutate("tasks", "update", { ...task, ...updates } as unknown as Record<string, unknown>)
-    await refresh()
-  }
+  const toggle = useCallback(async (id: string) => {
+    try {
+      await store.mutateOptimistic<Task>("tasks", spaceId, "update", (items) => {
+        const existing = items.find((i) => i.id === id)
+        if (!existing) return { items }
+        const merged = {
+          ...existing,
+          isCompleted: !existing.isCompleted,
+          completedAt: !existing.isCompleted ? new Date().toISOString() : undefined,
+        } as unknown as Task
+        return { items: items.map((i) => (i.id === id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+      })
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+    }
+  }, [spaceId])
 
-  const remove = async (id: string) => {
-    await mutate("tasks", "delete", undefined, id)
-    await refresh()
-  }
+  const remove = useCallback(async (id: string) => {
+    try {
+      await store.mutateOptimistic<Task>("tasks", spaceId, "delete", (items) => ({
+        items: items.filter((i) => i.id !== id),
+        id,
+      }))
+    } catch {
+      toast.error(GENERIC_DELETE_ERROR)
+    }
+  }, [spaceId])
 
-  const update = async (id: string, updates: Partial<Omit<Task, "id" | "spaceId" | "createdAt">>) => {
-    const existing = items.find((i) => i.id === id)
-    if (!existing) return
-    await mutate("tasks", "update", { ...existing, ...updates } as unknown as Record<string, unknown>)
-    await refresh()
-  }
+  const update = useCallback(async (id: string, updates: Partial<Omit<Task, "id" | "spaceId" | "createdAt">>) => {
+    try {
+      await store.mutateOptimistic<Task>("tasks", spaceId, "update", (items) => {
+        const existing = items.find((i) => i.id === id)
+        if (!existing) return { items }
+        const merged = { ...existing, ...updates }
+        return { items: items.map((i) => (i.id === id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+      })
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+    }
+  }, [spaceId])
 
   const sorted = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  return { items: sorted, loading, add, toggle, remove, update }
+  return { items: sorted, loading, error, add, toggle, remove, update }
 }
 
 export function useNotes(spaceId: string) {
-  const { items, loading, refresh } = useList<Note>("notes", spaceId)
+  const { items, loading, error } = useTable<Note>("notes", spaceId)
 
-  const add = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
+  const add = useCallback(async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
     const id = uid()
     const now = new Date().toISOString()
-    await mutate("notes", "add", { ...note, id, createdAt: now, updatedAt: now } as unknown as Record<string, unknown>)
-    await refresh()
+    const record = { ...note, id, createdAt: now, updatedAt: now } as unknown as Note
+    try {
+      await store.mutateOptimistic<Note>("notes", spaceId, "add", (items) => ({
+        items: [...items, record],
+        record: record as unknown as Record<string, unknown>,
+      }))
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+      throw new Error("add failed")
+    }
     return id
-  }
+  }, [spaceId])
 
-  const togglePin = async (id: string) => {
-    const note = items.find((i) => i.id === id)
-    if (!note) return
-    await mutate("notes", "update", { ...note, isPinned: !note.isPinned, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-    await refresh()
-  }
+  const togglePin = useCallback(async (id: string) => {
+    try {
+      await store.mutateOptimistic<Note>("notes", spaceId, "update", (items) => {
+        const existing = items.find((i) => i.id === id)
+        if (!existing) return { items }
+        const merged = { ...existing, isPinned: !existing.isPinned, updatedAt: new Date().toISOString() } as unknown as Note
+        return { items: items.map((i) => (i.id === id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+      })
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+    }
+  }, [spaceId])
 
-  const remove = async (id: string) => {
-    await mutate("notes", "delete", undefined, id)
-    await refresh()
-  }
+  const remove = useCallback(async (id: string) => {
+    try {
+      await store.mutateOptimistic<Note>("notes", spaceId, "delete", (items) => ({
+        items: items.filter((i) => i.id !== id),
+        id,
+      }))
+    } catch {
+      toast.error(GENERIC_DELETE_ERROR)
+    }
+  }, [spaceId])
 
-  const update = async (id: string, updates: Partial<Omit<Note, "id" | "spaceId" | "createdAt">>) => {
-    const existing = items.find((i) => i.id === id)
-    if (!existing) return
-    await mutate("notes", "update", { ...existing, ...updates, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
-    await refresh()
-  }
+  const update = useCallback(async (id: string, updates: Partial<Omit<Note, "id" | "spaceId" | "createdAt">>) => {
+    try {
+      await store.mutateOptimistic<Note>("notes", spaceId, "update", (items) => {
+        const existing = items.find((i) => i.id === id)
+        if (!existing) return { items }
+        const merged = { ...existing, ...updates, updatedAt: new Date().toISOString() } as unknown as Note
+        return { items: items.map((i) => (i.id === id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+      })
+    } catch {
+      toast.error(GENERIC_SAVE_ERROR)
+    }
+  }, [spaceId])
 
   const sorted = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  return { items: sorted, loading, add, togglePin, remove, update }
+  return { items: sorted, loading, error, add, togglePin, remove, update }
 }
 
 export function useCategories(spaceId: string) {
-  const [items, setItems] = useState<Category[]>([])
-  useEffect(() => {
-    list<Category>("categories", spaceId).then(setItems).catch(() => {})
-  }, [spaceId])
-  return items
+  return useTable<Category>("categories", spaceId).items
 }
 
 export function useAccounts(spaceId: string) {
-  const [items, setItems] = useState<Account[]>([])
-  useEffect(() => {
-    list<Account>("accounts", spaceId).then(setItems).catch(() => {})
-  }, [spaceId])
-  return items
+  return useTable<Account>("accounts", spaceId).items
 }
 
 export function useProfile(userId?: string) {
-  const [profile, setProfile] = useState<Profile | undefined>()
-  useEffect(() => {
-    if (!userId) { setProfile(undefined); return }
-    list<Profile>("profiles").then((arr) => setProfile(arr[0])).catch(() => {})
-  }, [userId])
-  return profile
+  const { items } = useTable<Profile>("profiles", undefined)
+  return userId ? items.find((p) => p.id === userId) : undefined
 }
 
-export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>) {
-  await mutate("profiles", "update", { id, ...updates, updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+export function useSpaceMembers() {
+  return useTable<SpaceMember>("spaceMembers", undefined).items
 }
 
-export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>) {
-  const members = await list<SpaceMember>("spaceMembers")
-  const member = members.find((m) => m.spaceId === spaceId && m.userId === userId)
-  if (!member) return
-  await mutate("spaceMembers", "update", { ...member, ...updates } as unknown as Record<string, unknown>)
+export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>): Promise<void> {
+  await store.mutateOptimistic<Profile>("profiles", undefined, "update", (items) => {
+    const existing = items.find((i) => i.id === id)
+    const merged = { ...(existing ?? { id, createdAt: new Date().toISOString() }), ...updates, updatedAt: new Date().toISOString() } as unknown as Profile
+    const next = existing ? items.map((i) => (i.id === id ? merged : i)) : [...items, merged]
+    return { items: next, record: merged as unknown as Record<string, unknown> }
+  })
+}
+
+export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>): Promise<void> {
+  await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "update", (items) => {
+    const existing = items.find((m) => m.spaceId === spaceId && m.userId === userId)
+    if (!existing) return { items }
+    const merged = { ...existing, ...updates }
+    return { items: items.map((i) => (i.id === existing.id ? merged : i)), record: merged as unknown as Record<string, unknown> }
+  })
 }
 
 export function personalSpaceId(userId: string): string {
