@@ -5,11 +5,13 @@ import db, { type Space, type SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
 import { enqueue, enqueueMany } from "@/lib/sync"
 
+const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
+
 export type SpaceWithRole = Space & { role: "owner" | "member" }
 
 export function useSpaces(userId?: string) {
   const [spaces, setSpaces] = useState<SpaceWithRole[]>([])
-  const [currentId, setCurrentIdState] = useState<string>("personal")
+  const [currentId, setCurrentIdState] = useState<string>(PERSONAL_SPACE_ID)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
@@ -29,16 +31,16 @@ export function useSpaces(userId?: string) {
 
   const ensurePersonalSpace = useCallback(async () => {
     const ops: { table: string; op: "upsert" | "delete"; data?: Record<string, unknown>; recordId?: string }[] = []
-    const existing = await db.spaces.get("personal")
+    const existing = await db.spaces.get(PERSONAL_SPACE_ID)
     if (!existing) {
-      const data = { id: "personal", name: "Personal", inviteCode: "", createdAt: new Date() }
+      const data = { id: PERSONAL_SPACE_ID, name: "Personal", inviteCode: "", createdAt: new Date() }
       await db.spaces.put(data)
-      ops.push({ table: "spaces", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: "personal" })
+      ops.push({ table: "spaces", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: PERSONAL_SPACE_ID })
     }
     if (userId) {
-      const isMember = await db.spaceMembers.where({ spaceId: "personal", userId }).first()
+      const isMember = await db.spaceMembers.where({ spaceId: PERSONAL_SPACE_ID, userId }).first()
       if (!isMember) {
-        const data = { id: uid(), spaceId: "personal", userId, role: "owner" as const, joinedAt: new Date() }
+        const data = { id: uid(), spaceId: PERSONAL_SPACE_ID, userId, role: "owner" as const, joinedAt: new Date() }
         await db.spaceMembers.put(data)
         ops.push({ table: "spaceMembers", op: "upsert", data: data as unknown as Record<string, unknown>, recordId: data.id })
       }

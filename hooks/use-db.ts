@@ -146,7 +146,9 @@ export function useAccounts(spaceId: string) {
   return items
 }
 
-export function useSpace(defaultSpaceId = "personal") {
+const PERSONAL_SPACE_ID = "00000000-0000-0000-0000-000000000001"
+
+export function useSpace(defaultSpaceId = PERSONAL_SPACE_ID) {
   const [spaceId] = useState(defaultSpaceId)
   return spaceId
 }
