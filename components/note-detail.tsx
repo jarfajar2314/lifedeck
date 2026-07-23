@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -20,12 +20,14 @@ export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTog
   const [content, setContent] = useState("")
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    if (!note) return
+    setContent(note.content)
+    setSaving(false)
+  }, [note?.id, note?.content])
+
   if (!note) return null
   const n = note
-
-  function startEdit() {
-    setContent(n.content)
-  }
 
   async function handleSave() {
     if (!content.trim()) {
@@ -51,7 +53,7 @@ export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTog
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (v) startEdit() }}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-label="Note detail">
         <SheetHeader>
           <SheetTitle>Edit Note</SheetTitle>
