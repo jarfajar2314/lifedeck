@@ -35,19 +35,10 @@ async function initAuth() {
   const ssl = url.searchParams.get("sslmode") !== "disable"
 
   const ips = await dns.resolve4(url.hostname).catch(() => [])
-  if (ips.length === 0) {
-    console.warn(
-      `[LifeDeck] No IPv4 address found for ${url.hostname}. ` +
-      "Supabase direct connections are IPv6-only by default.\n" +
-      "Enable the IPv4 add-on in Supabase dashboard or use the session pooler (port 6543).\n" +
-      "Falling back to memory adapter (data lost on restart)."
-    )
-    return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
-  }
 
   return betterAuth(baseConfig(new PostgresDialect({
     pool: new Pool({
-      host: ips[0],
+      host: ips[0] || url.hostname,
       port: Number(url.port) || 5432,
       database: url.pathname.replace(/^\//, ""),
       user: url.username,
