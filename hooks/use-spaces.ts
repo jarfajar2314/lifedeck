@@ -61,7 +61,7 @@ export function useSpaces(userId?: string) {
 
   const ensurePersonalSpace = useCallback(async () => {
     if (!userId) return
-    await mutate("profiles", "add", { id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+    try { await mutate("profiles", "add", { id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>) } catch {}
 
     let psId = getCachedPersonalSpaceId(userId)
     if (!psId) {
@@ -73,12 +73,16 @@ export function useSpaces(userId?: string) {
     const existing = allSpaces.find((s) => s.id === psId)
     if (!existing) {
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-      await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      try {
+        await mutate("spaces", "add", { id: psId, name: "Personal", inviteCode, createdAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      } catch {}
     }
     const members = await list<SpaceMember>("spaceMembers")
     const isMember = members.find((m) => m.spaceId === psId && m.userId === userId)
     if (!isMember) {
-      await mutate("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      try {
+        await mutate("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
+      } catch {}
     }
     await refresh()
     localStorage.removeItem("lifedeck-current-space")
