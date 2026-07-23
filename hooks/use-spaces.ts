@@ -64,6 +64,7 @@ export function useSpaces(userId?: string) {
 
   const ensurePersonalSpace = useCallback(async () => {
     if (!userId) return
+    await mutate("profiles", "add", { id: userId, currency: "IDR", monthlyBudget: 0, themePreference: "dark", accentColor: "emerald", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Record<string, unknown>)
     const psId = personalSpaceId(userId)
     const allSpaces = await list<Space>("spaces")
     const existing = allSpaces.find((s) => s.id === psId)
