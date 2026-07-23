@@ -47,10 +47,10 @@ export function useSpaces(userId?: string) {
         return
       }
 
-      const personal = spaces.find((s) => s.personal)
-      if (personal) {
-        setCurrentIdState(personal.id)
-        localStorage.setItem("lifedeck-current-space", personal.id)
+      const personalSpace = spaces.find((s) => s.personal)
+      if (personalSpace) {
+        setCurrentIdState(personalSpace.id)
+        localStorage.setItem("lifedeck-current-space", personalSpace.id)
         setInitializing(false)
         return
       }
@@ -60,10 +60,14 @@ export function useSpaces(userId?: string) {
       try {
         await store.persist("spaces", "add", { id: psId, name: "Personal", personal: true, inviteCode, createdAt: new Date().toISOString() })
         await store.persist("spaceMembers", "add", { id: uid(), spaceId: psId, userId, role: "owner", joinedAt: new Date().toISOString() })
-        store.invalidate(["spaces", "spaceMembers"])
-        setCurrentIdState(psId)
-        localStorage.setItem("lifedeck-current-space", psId)
       } catch {}
+      store.invalidate(["spaces", "spaceMembers"])
+      const allSpaces = await store.list<Space>("spaces")
+      const fallbackSpace = allSpaces.find((s) => s.personal)
+      if (fallbackSpace) {
+        setCurrentIdState(fallbackSpace.id)
+        localStorage.setItem("lifedeck-current-space", fallbackSpace.id)
+      }
       setInitializing(false)
     }
 

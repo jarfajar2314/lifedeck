@@ -25,6 +25,17 @@ export async function POST(request: Request) {
     const recordId = body.id as string
     if (!recordId) return Response.json({ error: "data.id required" }, { status: 400 })
 
+    const isPersonal = body.personal === true
+    if (isPersonal) {
+      const existing = await query(
+        `SELECT s.id FROM public.spaces s INNER JOIN public.space_members m ON m.space_id = s.id WHERE m.user_id = $1 AND s.personal = TRUE LIMIT 1`,
+        [userId]
+      )
+      if (existing.length > 0 && existing[0].id !== recordId) {
+        return Response.json({ error: "Personal space already exists" }, { status: 409 })
+      }
+    }
+
     const snake = toSnake(TABLE, body)
     const cols = Object.keys(snake)
     const vals = Object.values(snake)
