@@ -66,4 +66,11 @@ async function initAuth() {
   })
 }
 
-export const auth = await initAuth()
+let _auth: Awaited<ReturnType<typeof initAuth>> | null = null
+
+export async function getAuth() {
+  if (!_auth) {
+    _auth = await initAuth()
+  }
+  return _auth!
+}

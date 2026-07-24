@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth"
+import { getAuth } from "@/lib/auth"
 import { Pool } from "pg"
 import { sseManager } from "@/lib/sse-manager"
 
@@ -71,7 +71,7 @@ async function query(sql: string, params: unknown[] = []): Promise<Record<string
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await (await getAuth()).api.getSession({ headers: request.headers })
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
   const url = new URL(request.url)
@@ -114,7 +114,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await (await getAuth()).api.getSession({ headers: request.headers })
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
   let body: { table?: string; op?: string; data?: Record<string, unknown>; id?: string }
