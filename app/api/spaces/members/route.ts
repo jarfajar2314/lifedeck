@@ -8,7 +8,10 @@ export async function GET(request: Request) {
   try {
     const userId = await requireAuth(request)
     const rows = await query(
-      `SELECT m.* FROM public.space_members m INNER JOIN public.spaces s ON s.id = m.space_id WHERE m.user_id = $1`,
+      `SELECT m.*, p.display_name FROM public.space_members m
+       INNER JOIN public.spaces s ON s.id = m.space_id
+       LEFT JOIN public.profiles p ON p.id = m.user_id
+       WHERE m.space_id IN (SELECT space_id FROM public.space_members WHERE user_id = $1)`,
       [userId]
     )
     const mapped = rows.map((r) => coerceNumeric(toCamel(TABLE, r)))

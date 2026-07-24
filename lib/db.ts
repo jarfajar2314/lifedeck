@@ -24,6 +24,7 @@ export interface SpaceMember {
   role: "owner" | "member"
   defaultAccountId?: string
   joinedAt: Date
+  displayName?: string
 }
 
 export interface Account {

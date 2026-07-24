@@ -288,13 +288,15 @@ export default function SpaceSettingsPage() {
               <div className="flex flex-col gap-1">
                 {spaceMembers.map((m) => {
                   const isYou = m.userId === user?.id
+                  const memberName = m.displayName || (isYou ? user?.name : null) || "Unknown"
+                  const initial = memberName.charAt(0).toUpperCase()
                   return (
                     <div key={m.id} className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Avatar size="sm">
-                          <AvatarFallback className="text-[10px]">{(isYou ? user?.name : "?")?.charAt(0)?.toUpperCase() || "?"}</AvatarFallback>
+                          <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium">{isYou ? user?.name || "You" : "Member"}</span>
+                        <span className="text-sm font-medium">{memberName}</span>
                         {isYou && <span className="text-[10px] text-muted-foreground">(you)</span>}
                       </div>
                       <span className="text-xs text-muted-foreground">{m.role === "owner" ? "Owner" : "Member"}</span>
