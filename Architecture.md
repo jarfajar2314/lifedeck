@@ -13,6 +13,12 @@ LifeDeck is a Next.js 16 App Router PWA with per-entity API endpoints communicat
 ├── app/
 │   ├── (auth)/sign-in/       Sign-in page
 │   ├── (auth)/sign-up/       Sign-up page
+│   ├── settings/
+│   │   ├── space/
+│   │   │   ├── page.tsx             Space settings (rename, members, default payment, delete)
+│   │   │   ├── accounts/page.tsx    Account CRUD (list, edit, delete with cascade)
+│   │   │   └── category/page.tsx    Category CRUD (name, color, icon, keywords)
+│   │   └── user/page.tsx            User settings (display name, password, avatar, logout)
 │   ├── api/
 │   │   ├── accounts/         Account CRUD + balance recalculate
 │   │   ├── auth/             Better Auth catch-all route
@@ -43,7 +49,11 @@ LifeDeck is a Next.js 16 App Router PWA with per-entity API endpoints communicat
 │   ├── note-list.tsx         Note list
 │   ├── note-detail.tsx       Note edit sheet
 │   ├── account-detail.tsx    Account detail drawer
-│   ├── user-menu.tsx         Settings drawer
+│   ├── account-manager.tsx   Account CRUD (list, edit, delete with cascade)
+│   ├── space-settings.tsx    Space settings components
+│   ├── user-settings.tsx     User settings components
+│   ├── category-manager.tsx  Category CRUD (name, color, icon, keywords)
+│   ├── user-menu.tsx         Settings drawer (shortcuts to dedicated pages)
 │   ├── space-selector.tsx    Space switcher
 │   ├── auth-provider.tsx     Auth context provider
 │   ├── theme-provider.tsx    Theme context provider
@@ -91,7 +101,9 @@ All endpoints are per-entity (no monolithic `/api/sync`). Each supports:
 | `PUT/DELETE /api/accounts/[id]` | Account | Updates/deletes |
 | `POST /api/accounts/recalculate` | — | Replays all transactions to rebuild account balances |
 | `GET/POST /api/categories` | Category | Space-scoped categories |
+| `PUT/DELETE /api/categories/[id]` | Category | Partial update / delete (unlinks transactions) |
 | `GET/POST /api/category-keywords` | CategoryKeyword | Keyword→category mapping for auto-categorize |
+| `DELETE /api/category-keywords/[id]` | CategoryKeyword | Delete a single keyword mapping |
 | `GET/POST /api/transactions` | Transaction | POST inserts + updates account balance in same DB transaction |
 | `PUT/DELETE /api/transactions/[id]` | Transaction | Reverses old balance effect, applies new effect |
 | `GET/POST /api/tasks` | Task | |

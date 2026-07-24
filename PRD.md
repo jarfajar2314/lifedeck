@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 9.0  
+**Document Version:** 10.0  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -784,7 +784,167 @@ The legacy `/api/data` (single endpoint for all tables) is deprecated and must n
 
 ---
 
-### 📋 Phase 10: Offline-First & Deployment Preparation
+### ✅ Phase 10: Settings, Accounts & Category Management
+
+**Status:** 🚧 In Progress
+
+---
+
+#### 10A. Transaction Page Enhancement (`/transactions`)
+
+| Task | Detail |
+|------|--------|
+| **Filter by account** | Add account filter dropdown to `/app/transactions/page.tsx` — filters the `TransactionList` by `accountId`. Pass filtered IDs to list or filter client-side. |
+| **Month picker filter** | Add month/year picker to filter transactions by `loggedAt`. Use a simple `<input type="month">` or Shadcn calendar. Filter client-side from the loaded items for that space. |
+| **Transaction detail drawer — creator & time** | In `TransactionDetail`, show `createdBy` (resolve to user name via members/profiles) and full date-time on `loggedAt` (not just date). Improve the timestamp display with "Created by X at HH:MM" below the date. |
+
+**Files affected:**
+- `app/transactions/page.tsx` — add filter UI, pass filtered items to TransactionList
+- `components/transaction-list.tsx` — accept optional `accountId` / `month` filters
+- `components/transaction-detail.tsx` — show `createdBy` name + time on `loggedAt`
+
+---
+
+#### 10B. Main Page Dashboard Enhancement
+
+| Task | Detail |
+|------|--------|
+| **"See All" on account card** | Add `href="/settings/space/accounts"` link in the Accounts card header (same pattern as Money's "See All"). |
+| **Replace icon-28.png with lifedeck.svg** | Use `public/lifedeck.svg` in the header instead of `/icon-28.png` so the logo adapts to theme colors via CSS. Create the SVG if it doesn't exist — a simple text-based "LD" or "♠" logo that uses `currentColor`. |
+| **Space selector click-outside close** | The backdrop div (`fixed inset-0`) already handles this — verify it works. If not, ensure the overlay `z-index` isn't blocked by other elements. |
+| **Account card skeleton** | Add skeleton shimmer for account balances while loading (similar to existing transaction skeleton). Use `useAccounts` loading state. |
+| **Transfer row opens detail drawer** | Clicking a merged transfer row should open a detail view showing both sides of the transfer. Add `onClick` to merged transfer rows in `TransactionList`. |
+| **Edit transaction — category select** | In `TransactionDetail` edit mode, add a category selector (dropdown or chip picker) so users can change the transaction's category. |
+
+**Files affected:**
+- `components/dashboard.tsx` — "See All" link, icon replacement, account skeleton loading state
+- `components/transaction-list.tsx` — transfer row onClick, open detail
+- `components/transaction-detail.tsx` — category select in edit mode
+- `public/lifedeck.svg` — create new SVG logo
+
+---
+
+#### 10C. Account Management Page (`/settings/space/accounts`)
+
+**New page:** Full account management at `/app/settings/space/accounts/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **List all accounts** | Table/list showing name, balance, default badge, creation date. |
+| **Edit account** | Inline edit or drawer — rename account. |
+| **Delete account** | Confirmation dialog with options: (1) Delete all transactions for this account, (2) Unlink transactions (set `account_id = NULL`). |
+| **Delete cascade logic** | Option 1: `DELETE FROM transactions WHERE account_id = $1` then `DELETE FROM accounts WHERE id = $1`. Option 2: `UPDATE transactions SET account_id = NULL WHERE account_id = $1` then delete account. Update API route to accept `?cascade=delete|unlink`. |
+
+**New files:**
+- `app/settings/space/accounts/page.tsx` — account list page
+- `components/account-manager.tsx` — reusable account CRUD component
+
+**API changes:**
+- `app/api/accounts/[id]/route.ts` — `DELETE` accepts `?cascade=delete|unlink` query param
+- `app/api/accounts/[id]/route.ts` — add `PUT` support for the `name` field (already exists)
+
+---
+
+#### 10D. Login Page Branding
+
+| Task | Detail |
+|------|--------|
+| **Add "LifeDeck" text next to icon** | In both `sign-in/page.tsx` and `sign-up/page.tsx`, add the text "LifeDeck" next to the icon in the card title. |
+
+**Files affected:**
+- `app/(auth)/sign-in/page.tsx` — add "LifeDeck" heading
+- `app/(auth)/sign-up/page.tsx` — add "LifeDeck" heading
+
+---
+
+#### 10E. User Menu Restructure
+
+| Task | Detail |
+|------|--------|
+| **Move out Accounts section** | Remove the Accounts CRUD section from `UserMenu`. It lives in `/settings/space/accounts`. |
+| **Move out Default Payment** | Remove the Default Payment section from `UserMenu`. It lives in `Space Settings`. |
+| **Add "User Settings" shortcut** | Button/link → `/settings/user` |
+| **Add "Space Settings" shortcut** | Button/link → `/settings/space` |
+| **Move out Space Code** | Remove the invite code display from `UserMenu`. It lives in `Space Settings`. |
+| **Restructure layout** | Top: avatar + name + email. Then: Appearance, Preferences, Currency. Then: shortcuts to User Settings, Space Settings. Then: Sign Out. |
+
+**Files affected:**
+- `components/user-menu.tsx` — remove Accounts, Default Payment, Space Code sections; add settings shortcut links
+
+---
+
+#### 10F. Space Settings Page (`/settings/space`)
+
+**New page:** Full space management at `/app/settings/space/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **Rename space** | Inline name editing. |
+| **Accounts section** | Moved from UserMenu — list, add, delete accounts. Same CRUD as Account Page but inline. |
+| **Default Payment** | Moved from UserMenu — select default account per member. |
+| **Category management** | Link to `/settings/space/category` or inline category list with add/edit/delete. |
+| **Space code display** | Moved from UserMenu — show invite code, copy, regenerate. |
+| **Member list** | Show all members of the current space (name, role, joined date). |
+| **Delete space (danger zone)** | Destructive button that deletes the space and all associated data. Confirmation requires typing the space name. Only for non-personal spaces. |
+
+**New files:**
+- `app/settings/space/page.tsx` — space settings page
+- `components/space-settings.tsx` — space settings components
+
+---
+
+#### 10G. User Settings Page (`/settings/user`)
+
+**New page:** User profile management at `/app/settings/user/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **Display name edit** | Text input to update `profiles.display_name`. |
+| **Password change** | Form using `authClient.changePassword()` (Better Auth API). |
+| **Profile picture** | Placeholder with "Coming soon" label. |
+| **Log out** | Destructive button that calls `signOut()`. |
+
+**New files:**
+- `app/settings/user/page.tsx` — user settings page
+- `components/user-settings.tsx` — user settings components
+
+---
+
+#### 10H. Category Management Page (`/settings/space/category`)
+
+**New page:** Full category CRUD at `/app/settings/space/category/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **List categories** | Grid or list showing color dot, icon placeholder, name, keyword count. |
+| **Add category** | Form with fields: name (required), color (color picker or preset swatches), icon (icon selector from Lucide), keywords (multi-input, comma/enter separated). |
+| **Edit category** | Same form pre-populated. |
+| **Delete category** | Confirmation — unlink transactions (set `category_id = NULL`) then delete. |
+| **Keyword management** | When editing, show keyword list with add/remove. Each keyword is a small chip with an "×" to remove. |
+| **Missing API route** | Create `app/api/categories/[id]/route.ts` (PUT + DELETE) — currently missing. |
+
+**New files:**
+- `app/settings/space/category/page.tsx` — category management page
+
+**API changes:**
+- `app/api/categories/[id]/route.ts` — create PUT/DELETE handler (currently missing)
+- `app/api/category-keywords/[id]/route.ts` — create DELETE handler for individual keywords
+
+---
+
+#### 10I. Little Enhancements & Polish
+
+| Task | Detail |
+|------|--------|
+| **System navbar black on PWA** | The `<meta name="theme-color">` in `layout.tsx` is hardcoded `#09090b`. The `ThemeMeta` component already updates it dynamically — ensure the static `viewport` export in `layout.tsx` is also removed or matches dynamic behavior. Fix: remove `themeColor` from the static `viewport` export in `layout.tsx` since `ThemeMeta` handles it dynamically. |
+| **Prevent user zoom** | Add `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">` — or set `viewport` export in `layout.tsx` to `{ width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false }`. |
+
+**Files affected:**
+- `app/layout.tsx` — fix theme-color in viewport export; add `maximumScale: 1, userScalable: false`
+
+---
+
+### 📋 Phase 11: Offline-First & Deployment Preparation
 
 **Status:** ❌ Not Started
 
@@ -793,6 +953,8 @@ The legacy `/api/data` (single endpoint for all tables) is deprecated and must n
 - Background sync: service worker handles pending mutations when connectivity resumes
 - Conflict resolution: last-write-wins with server timestamp authority
 - Deployment to Vercel or custom domain with environment variable provisioning
+
+---
 
 ---
 
@@ -836,3 +998,30 @@ Architecture.md                          — New project architecture doc
 2. Balance stored as DB column, recalculated by replaying all transactions ordered by `logged_at`
 3. Auto-categorize uses `category_keywords` table; `matchCategory()` matches on longest keyword, called both live (keypad input) and at submit (fallback)
 4. Per-entity API routes are the standard; `/api/data` monolithic endpoint is deprecated
+
+---
+
+### Session 2026-07-24 — Phase 10 Planning
+
+**Focus:** Settings pages, account management, category CRUD, UI polish.
+
+**Phase 10 Overview (9 workstreams):**
+
+| # | Area | Key Deliverables |
+|---|------|-----------------|
+| 10A | Transaction Page Enhancement | Account filter, month picker, creator + time in detail drawer |
+| 10B | Dashboard Enhancement | See All link, SVG logo, skeletons, transfer detail drawer, category edit |
+| 10C | Account Management Page | `/settings/space/accounts` — list, edit, delete with cascade options |
+| 10D | Login Page | "LifeDeck" text branding on sign-in/sign-up |
+| 10E | User Menu Restructure | Remove accounts/default payment/space code; add settings shortcuts |
+| 10F | Space Settings Page | `/settings/space` — rename, accounts, default payment, members, delete |
+| 10G | User Settings Page | `/settings/user` — display name, password, coming-soon avatar, logout |
+| 10H | Category Management | `/settings/space/category` — full CRUD with keywords, color, icon |
+| 10I | Little Enhancements | Dynamic theme-color meta, prevent zoom |
+
+**Key Decisions:**
+1. Accounts & categories get their own settings pages instead of living in the user menu drawer
+2. User menu becomes a slim navigation hub with shortcuts to dedicated settings pages
+3. Category API needs `[id]/route.ts` PUT/DELETE endpoint (currently missing)
+4. Account delete offers cascade options via query param (`?cascade=delete|unlink`)
+5. `lifedeck.svg` will be a simple SVG using `currentColor` for theme adaptation
