@@ -8,8 +8,9 @@ function getPool(): Pool {
     pool = new Pool({
       connectionString: (process.env.DATABASE_URL || "").replace(/\?sslmode=\w+/, "").replace(/&sslmode=\w+/, ""),
       max: 5,
+      family: 4,
       ssl: { rejectUnauthorized: false },
-    })
+    } as any)
   }
   return pool
 }
