@@ -32,9 +32,10 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
   const [transferTargetId, setTransferTargetId] = useState("")
   const [transferNote, setTransferNote] = useState("")
 
-  if (!account) return null
+  const liveAccount = accounts.find((a) => a.id === account?.id) || account
+  if (!liveAccount) return null
 
-  const acc = account
+  const acc = liveAccount
 
   const otherAccounts = accounts.filter((a) => a.id !== acc.id)
   const accountTxs = allTxs
@@ -59,6 +60,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
     const amount = parseFloat(incomeAmount.replace(/,/g, ""))
     if (isNaN(amount) || amount <= 0) return
     await addTransaction({ spaceId, amount, type: "income", accountId: acc.id, note: incomeNote || undefined, loggedAt: new Date() })
+    store.invalidate(["accounts"])
     setIncomeAmount("")
     setIncomeNote("")
     setIncomeOpen(false)
@@ -73,6 +75,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
     const now = new Date()
     await addTransaction({ spaceId, amount, type: "expense", accountId: acc.id, note: transferNote || `Transfer to ${target.name}`, loggedAt: now })
     await addTransaction({ spaceId, amount, type: "income", accountId: target.id, note: transferNote || `Transfer from ${acc.name}`, loggedAt: now })
+    store.invalidate(["accounts"])
     setTransferAmount("")
     setTransferTargetId("")
     setTransferNote("")
@@ -104,7 +107,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
               </div>
             ) : (
               <div className="flex items-center gap-2 flex-1">
-                <span>{account.name}</span>
+                <span>{acc.name}</span>
                 <button onClick={startEditing} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -112,7 +115,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
             )}
           </DrawerTitle>
           <p className="text-2xl font-bold tabular-nums">
-            {formatBalance(account.balance)}
+            {formatBalance(acc.balance)}
           </p>
         </DrawerHeader>
 
