@@ -228,7 +228,7 @@ export async function updateProfile(id: string, updates: Partial<Omit<Profile, "
 }
 
 export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>): Promise<void> {
-  await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "update", (items) => {
+  await store.mutateOptimistic<SpaceMember>("spaceMembers", spaceId, "update", (items) => {
     const existing = items.find((m) => m.spaceId === spaceId && m.userId === userId)
     if (!existing) return { items }
     const merged = { ...existing, ...updates }
