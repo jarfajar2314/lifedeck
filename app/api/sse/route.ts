@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth"
+import { getAuth } from "@/lib/auth"
 import { sseManager } from "@/lib/sse-manager"
 import { uid } from "@/lib/uid"
 
 export async function GET(request: Request) {
-  const session = await auth.api.getSession({ headers: request.headers })
+  const session = await (await getAuth()).api.getSession({ headers: request.headers })
   if (!session) {
     return new Response("Unauthorized", { status: 401 })
   }
