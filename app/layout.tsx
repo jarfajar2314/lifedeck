@@ -47,7 +47,7 @@ export default function RootLayout({
           <ThemeMeta />
           <AuthProvider>
             {children}
-            <Toaster position="top-center" richColors />
+            <Toaster position="bottom-center" richColors style={{ bottom: "80px" }} />
           </AuthProvider>
         </ThemeProvider>
       </body>

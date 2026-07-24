@@ -1,6 +1,6 @@
 export type ParsedCommand =
-  | { type: "expense"; amount: number; note?: string; account?: string }
-  | { type: "income"; amount: number; note?: string; account?: string }
+  | { type: "expense"; amount: number; note?: string; account?: string; category?: string }
+  | { type: "income"; amount: number; note?: string; account?: string; category?: string }
   | { type: "transfer"; amount: number; fromAccount: string; toAccount: string; note?: string }
   | { type: "task"; title: string; dueDate?: string }
   | { type: "note"; content: string }
@@ -14,10 +14,11 @@ function parseAmount(raw: string): number {
   return parseFloat(numStr.replace(/,/g, "")) * multiplier
 }
 
-function extractAccount(rest: string): { note?: string; account?: string } {
-  const note = rest.replace(/@(\w+)/g, "").trim()
+function extractMeta(rest: string): { note?: string; account?: string; category?: string } {
+  const note = rest.replace(/@(\w+)/g, "").replace(/#(\w+)/g, "").trim()
   const account = rest.match(/@(\w+)/)?.[1]
-  return { note: note || undefined, account }
+  const category = rest.match(/#(\w+)/)?.[1]
+  return { note: note || undefined, account, category }
 }
 
 export function parseCommand(input: string): ParsedCommand | null {
@@ -49,8 +50,8 @@ export function parseCommand(input: string): ParsedCommand | null {
     const amount = parseAmount(incomeMatch[1])
     const rest = incomeMatch[2]?.trim()
     if (rest) {
-      const { note, account } = extractAccount(rest)
-      return { type: "income", amount, note, account }
+      const { note, account, category } = extractMeta(rest)
+      return { type: "income", amount, note, account, category }
     }
     return { type: "income", amount }
   }
@@ -60,8 +61,8 @@ export function parseCommand(input: string): ParsedCommand | null {
     const amount = parseAmount(amountMatch[1])
     const rest = amountMatch[2]?.trim()
     if (rest) {
-      const { note, account } = extractAccount(rest)
-      return { type: "expense", amount, note, account }
+      const { note, account, category } = extractMeta(rest)
+      return { type: "expense", amount, note, account, category }
     }
     return { type: "expense", amount }
   }

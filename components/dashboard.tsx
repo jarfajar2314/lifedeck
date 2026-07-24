@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useMemo } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { TaskList } from "@/components/task-list"
@@ -14,20 +15,21 @@ import { OfflineIndicator } from "@/components/offline-indicator"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
-import { useTransactions, useTasks, useNotes, useAccounts } from "@/hooks/use-db"
+import { useTransactions, useTasks, useNotes, useAccounts, useCategories, useCategoryKeywords } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
 import { useRealtime } from "@/hooks/use-realtime"
 import { haptics } from "@/lib/haptics"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Wallet, CreditCard, ListChecks, StickyNote, Plus } from "lucide-react"
+import { Wallet, CreditCard, ListChecks, StickyNote, Plus, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
+import { matchCategory } from "@/lib/categories"
 import type { Account } from "@/lib/db"
 
 export function Dashboard() {
   const { user } = useAuth()
-  const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
+  const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode, members } = useSpaces(user?.id)
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
@@ -35,6 +37,13 @@ export function Dashboard() {
   useRealtime()
 
   const accounts = useAccounts(currentId)
+  const categories = useCategories(currentId)
+  const categoryKeywords = useCategoryKeywords(currentId)
+  const keywordMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const kw of categoryKeywords) m.set(kw.keyword.toLowerCase(), kw.categoryId)
+    return m
+  }, [categoryKeywords])
   const { add: addTransaction } = useTransactions(currentId)
   const { add: addTask } = useTasks(currentId)
   const { add: addNote } = useNotes(currentId)
@@ -43,11 +52,17 @@ export function Dashboard() {
     return accounts.find((a) => a.name.toLowerCase() === name.toLowerCase())
   }, [accounts])
 
-  const handleExpense = useCallback(async (amount: number, note?: string, account?: string) => {
+  const resolveCategory = useCallback((name: string) => {
+    return categories.find((c) => c.name.toLowerCase() === name.toLowerCase())
+  }, [categories])
+
+  const handleExpense = useCallback(async (amount: number, note?: string, account?: string, category?: string) => {
+    const currentMember = members.find((m) => m.spaceId === currentId && m.userId === user?.id)
+    const categoryId = category ? resolveCategory(category)?.id : (note ? matchCategory(note, keywordMap) : undefined)
     if (account) {
       const match = resolveAccount(account)
       if (match) {
-        addTransaction({ spaceId: currentId, amount, type: "expense", note, accountId: match.id, loggedAt: new Date(), createdBy: user?.id })
+        addTransaction({ spaceId: currentId, amount, type: "expense", note, categoryId, accountId: match.id, loggedAt: new Date(), createdBy: user?.id })
         haptics.success()
         toast(`Expense: -Rp${amount.toLocaleString("id-ID")} @${match.name}`)
         return
@@ -59,7 +74,7 @@ export function Dashboard() {
             const newId = uid()
             await store.persist("accounts", "add", { id: newId, spaceId: currentId, name: account, createdAt: new Date().toISOString() })
             store.invalidate(["accounts"])
-            addTransaction({ spaceId: currentId, amount, type: "expense", note, accountId: newId, loggedAt: new Date(), createdBy: user?.id })
+            addTransaction({ spaceId: currentId, amount, type: "expense", note, categoryId, accountId: newId, loggedAt: new Date(), createdBy: user?.id })
             haptics.success()
             toast(`Expense: -Rp${amount.toLocaleString("id-ID")} @${account}`)
           },
@@ -67,16 +82,23 @@ export function Dashboard() {
       })
       return
     }
-    addTransaction({ spaceId: currentId, amount, type: "expense", note, loggedAt: new Date(), createdBy: user?.id })
+    const targetId = currentMember?.defaultAccountId
+    if (targetId) {
+      addTransaction({ spaceId: currentId, amount, type: "expense", note, categoryId, accountId: targetId, loggedAt: new Date(), createdBy: user?.id })
+    } else {
+      addTransaction({ spaceId: currentId, amount, type: "expense", note, categoryId, loggedAt: new Date(), createdBy: user?.id })
+    }
     haptics.success()
-    toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
-  }, [currentId, user?.id, resolveAccount, addTransaction])
+    toast(`Expense: -Rp${amount.toLocaleString("id-ID")}${targetId ? ` @${accounts.find(a => a.id === targetId)?.name ?? ""}` : ""}`)
+  }, [currentId, user?.id, resolveAccount, resolveCategory, addTransaction, members, accounts, keywordMap])
 
-  const handleIncome = useCallback(async (amount: number, note?: string, account?: string) => {
+  const handleIncome = useCallback(async (amount: number, note?: string, account?: string, category?: string) => {
+    const currentMember = members.find((m) => m.spaceId === currentId && m.userId === user?.id)
+    const categoryId = category ? resolveCategory(category)?.id : (note ? matchCategory(note, keywordMap) : undefined)
     if (account) {
       const match = resolveAccount(account)
       if (match) {
-        addTransaction({ spaceId: currentId, amount, type: "income", note, accountId: match.id, loggedAt: new Date(), createdBy: user?.id })
+        addTransaction({ spaceId: currentId, amount, type: "income", note, categoryId, accountId: match.id, loggedAt: new Date(), createdBy: user?.id })
         haptics.success()
         toast(`Income: +Rp${amount.toLocaleString("id-ID")} @${match.name}`)
         return
@@ -88,7 +110,7 @@ export function Dashboard() {
             const newId = uid()
             await store.persist("accounts", "add", { id: newId, spaceId: currentId, name: account, createdAt: new Date().toISOString() })
             store.invalidate(["accounts"])
-            addTransaction({ spaceId: currentId, amount, type: "income", note, accountId: newId, loggedAt: new Date(), createdBy: user?.id })
+            addTransaction({ spaceId: currentId, amount, type: "income", note, categoryId, accountId: newId, loggedAt: new Date(), createdBy: user?.id })
             haptics.success()
             toast(`Income: +Rp${amount.toLocaleString("id-ID")} @${account}`)
           },
@@ -96,10 +118,15 @@ export function Dashboard() {
       })
       return
     }
-    addTransaction({ spaceId: currentId, amount, type: "income", note, loggedAt: new Date(), createdBy: user?.id })
+    const targetId = currentMember?.defaultAccountId
+    if (targetId) {
+      addTransaction({ spaceId: currentId, amount, type: "income", note, categoryId, accountId: targetId, loggedAt: new Date(), createdBy: user?.id })
+    } else {
+      addTransaction({ spaceId: currentId, amount, type: "income", note, categoryId, loggedAt: new Date(), createdBy: user?.id })
+    }
     haptics.success()
-    toast(`Income: +Rp${amount.toLocaleString("id-ID")}`)
-  }, [currentId, user?.id, resolveAccount, addTransaction])
+    toast(`Income: +Rp${amount.toLocaleString("id-ID")}${targetId ? ` @${accounts.find(a => a.id === targetId)?.name ?? ""}` : ""}`)
+  }, [currentId, user?.id, resolveAccount, resolveCategory, addTransaction, members, accounts, keywordMap])
 
   const handleTransfer = useCallback(async (amount: number, fromAccount: string, toAccount: string, note?: string) => {
     const from = resolveAccount(fromAccount)
@@ -113,7 +140,7 @@ export function Dashboard() {
       return
     }
     const now = new Date()
-    await addTransaction({ spaceId: currentId, amount, type: "expense", accountId: from.id, note: note || `Transfer to ${to.name}`, loggedAt: now, createdBy: user?.id })
+    await addTransaction({ spaceId: currentId, amount, type: "transfer", accountId: from.id, note: note || `Transfer to ${to.name}`, loggedAt: now, createdBy: user?.id })
     await addTransaction({ spaceId: currentId, amount, type: "income", accountId: to.id, note: note || `Transfer from ${from.name}`, loggedAt: now, createdBy: user?.id })
     haptics.success()
     toast(`Transfer: Rp${amount.toLocaleString("id-ID")} @${from.name} → @${to.name}`)
@@ -131,11 +158,13 @@ export function Dashboard() {
     toast("Note saved")
   }, [currentId, addNote])
 
-  const handleKeypadExpense = useCallback((amount: number, accountId?: string) => {
-    addTransaction({ spaceId: currentId, amount, type: "expense", accountId, loggedAt: new Date(), createdBy: user?.id })
-    toast(`Expense: -Rp${amount.toLocaleString("id-ID")}`)
+  const handleKeypadExpense = useCallback((amount: number, accountId?: string, categoryId?: string, note?: string, txType?: "expense" | "income") => {
+    const resolvedCategoryId = categoryId || (note ? matchCategory(note, keywordMap) : undefined)
+    const t = txType || "expense"
+    addTransaction({ spaceId: currentId, amount, type: t, accountId, categoryId: resolvedCategoryId, note, loggedAt: new Date(), createdBy: user?.id })
+    toast(`${t === "expense" ? "Expense" : "Income"}: ${t === "expense" ? "-" : "+"}Rp${amount.toLocaleString("id-ID")}`)
     setKeypadOpen(false)
-  }, [currentId, user?.id, addTransaction])
+  }, [currentId, user?.id, addTransaction, keywordMap])
 
   if (!user) {
     return (
@@ -191,16 +220,24 @@ export function Dashboard() {
               <CardTitle id="money-heading" className="flex items-center gap-2 text-base">
                 <Wallet className="h-4 w-4" aria-hidden="true" /> Money
               </CardTitle>
-              <button
-                onClick={() => setKeypadOpen(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
-                aria-label="Add expense"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="flex items-center gap-1">
+                <Link
+                  href="/transactions"
+                  className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary/50"
+                >
+                  See All <ArrowUpRight className="h-3 w-3" />
+                </Link>
+                <button
+                  onClick={() => setKeypadOpen(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
+                  aria-label="Add expense"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </CardHeader>
             <CardContent>
-              <TransactionList spaceId={currentId} limit={5} accounts={accounts} />
+              <TransactionList spaceId={currentId} limit={5} accounts={accounts} categories={categories} />
             </CardContent>
           </Card>
         </section>
@@ -259,8 +296,8 @@ export function Dashboard() {
       </main>
 
       <CommandBar
-        onExpense={(amount, note, account) => handleExpense(amount, note, account)}
-        onIncome={(amount, note, account) => handleIncome(amount, note, account)}
+        onExpense={(amount, note, account, category) => handleExpense(amount, note, account, category)}
+        onIncome={(amount, note, account, category) => handleIncome(amount, note, account, category)}
         onTransfer={(amount, fromAccount, toAccount, note) => handleTransfer(amount, fromAccount, toAccount, note)}
         onTask={(title) => handleTask(title)}
         onNote={(content) => handleNote(content)}
@@ -270,7 +307,7 @@ export function Dashboard() {
 
       <Drawer open={keypadOpen} onOpenChange={setKeypadOpen}>
         <DrawerContent aria-label="Expense keypad">
-          <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} accounts={accounts} />
+          <ExpenseKeypad onAmount={handleKeypadExpense} onClose={() => setKeypadOpen(false)} accounts={accounts} categories={categories} keywordMap={keywordMap} />
         </DrawerContent>
       </Drawer>
 

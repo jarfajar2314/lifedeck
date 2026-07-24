@@ -70,6 +70,14 @@ export interface Task {
   createdAt: Date
 }
 
+export interface CategoryKeyword {
+  id: string
+  spaceId: string
+  categoryId: string
+  keyword: string
+  createdAt: Date
+}
+
 export interface Note {
   id: string
   spaceId: string

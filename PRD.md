@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 7.0  
+**Document Version:** 10.0  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -401,9 +401,9 @@ CREATE POLICY "Users can view members of their spaces" ON public.space_members
 - ✅ **User Menu & Settings Drawer** — Bottom-sheet triggered by avatar/name in header; profile info, theme/accent toggles, currency selector, default account per space, space invite settings, sign out.
 - ✅ **True Realtime via SSE + PostgreSQL LISTEN/NOTIFY** — Sync API emits `NOTIFY` after writes; shared SSE manager pushes events to connected browser clients; polling remains as 10s fallback.
 
-### 🔄 Phase 6: Account Balance Tracking, Inline Suggestions & Shared Space Fix
+### ✅ Phase 6: Account Balance Tracking, Inline Suggestions & Shared Space Fix
 
-**Status:** In Progress
+**Status:** ✅ Completed
 
 **Overview:** Three interconnected features that complete the finance loop and fix a critical collaboration bug.
 
@@ -524,9 +524,9 @@ const { id, name } = await res.json();
 
 ---
 
-### 📋 Phase 7: PWA Production Readiness
+### ✅ Phase 7: PWA Production Readiness
 
-**Status:** 🔜 Upcoming
+**Status:** ✅ Completed
 
 **Goal:** Complete the PWA setup so LifeDeck is installable on mobile and desktop with proper icons, splash screens, offline fallback, and a production-grade manifest.
 
@@ -556,12 +556,472 @@ The existing Serwist service worker (`sw.ts`) already caches static assets via `
 
 ---
 
-### 📋 Phase 8: Offline-First & Deployment Preparation
+### ✅ Phase 8: Core Fixes & Feature Completion
 
-**Status:** ❌ Not Started (moved down; Phase 6 takes priority)
+**Status:** ✅ Completed
+
+**Goal:** Fix critical bugs in balance refresh, default account routing, and expense filtering, while adding missing features (categories, notes field) and UI polish.
+
+---
+
+#### 8A. Balance Refresh After Transaction
+
+**Bug:** Account balances shown in the UI (dashboard accounts card, expense keypad, user menu) don't update after creating a transaction. The `balance` column on the accounts table is updated server-side within the same DB transaction, but the client's accounts cache isn't invalidated after a transaction write.
+
+**Fix:**
+- After a successful `POST /api/transactions` (expense, income, or transfer), invalidate the accounts cache so the next read fetches fresh data.
+- After `PUT /api/transactions/[id]` (edit), re-fetch the affected account's balance.
+- After `DELETE /api/transactions/[id]` (delete), re-fetch the affected account's balance.
+
+---
+
+#### 8B. Exclude Transfers from Money Total
+
+**Bug:** The Money section header shows `totalExpenses` which sums all transaction amounts with `type === "expense"`. Transfers between accounts (transfer from GoPay to BCA) are not expenses and should not be counted.
+
+**Fix:**
+- `components/dashboard.tsx` — `totalExpenses` calculation should filter only `type === "expense"`, which it already does. Verify that transfer transactions are never counted.
+- Verify `components/transaction-list.tsx` — the total/header section excludes transfers.
+
+---
+
+#### 8C. Default Account Not Applied in Command Bar
+
+**Bug:** When a user types `25k lunch` without an `@account` tag, the expense should route to the user's default account (`space_members.default_account_id`). Currently, the fallback to default account is either missing or broken.
+
+**Fix:**
+- In `components/dashboard.tsx` — `handleExpense()` already resolves account names. If no account name is found from the parsed command, look up the current member's `defaultAccountId` and use that.
+- In the API route, also fall back to the user's default account if no `account_id` is provided on the transaction.
+- Ensure the fallback is properly fetched from `useSpaceMembers` or similar cache.
+
+---
+
+#### 8D. Category Support for Transactions
+
+**Feature:** Allow users to assign a category (Food, Transport, Shopping, Bills, etc.) to each transaction for better organization and filtering.
+
+**Implementation:**
+- Seed a default category set per space on space creation (Food, Transport, Shopping, Bills, Entertainment, Health, Education, Other).
+- Add a category selector in `components/expense-keypad.tsx` — row of filter chips between the amount and account selector.
+- Categories are already stored in `public.categories` table with `id`, `space_id`, `name`, `icon`, `color`.
+- Transaction API already has a `category_id` field.
+
+**Client Components:**
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Add category chip row (scrollable horizontal chips) |
+| `components/transaction-list.tsx` | Show category badge/color dot on each row |
+| `hooks/use-db.ts` | Expose `categories` via `useCategories` hook |
+| `lib/command-parser.ts` | Support `25k lunch #food` — hash tag syntax for category |
+| `components/account-detail.tsx` | Show category in transaction list entries |
+
+---
+
+#### 8E. Notes Input on Expense Keypad
+
+**Feature:** When opening the + button on Money (which opens ExpenseKeypad), allow the user to add a free-text note alongside the amount and account.
+
+**Fix:**
+- Add a text input field in `components/expense-keypad.tsx` between the numeric display and the account selector.
+- Label: "Note (optional)"
+- The note is sent as `{ note: string }` in the transaction payload.
+
+---
+
+#### 8F. UI Enhancements
+
+**Polish items:**
+
+| Item | Detail |
+|---|---|
+| **Balance loading state** | Show skeleton shimmer while account balances are loading |
+| **Transaction list empty state** | Better illustration / message when no transactions exist |
+| **Swipe affordance** | Subtle visual hint that task rows and transaction rows are swipeable (partial gradient fade at edges) |
+| **Keyboard dismiss** | Tapping outside the command bar / keypad should dismiss it |
+| **Drawer snap points** | ExpenseKeypad drawer should snap to a comfortable mid-point height instead of full screen on larger devices |
+| **Success animation** | Brief checkmark overlay or pulse when a transaction/task is saved |
+
+---
+
+### ✅ Phase 9: Auto-Categorization, Transfers UX, & Polish
+
+**Status:** ✅ Completed
+
+**Goal:** Add intelligent auto-categorization via keywords, improve transfer UX with merged display rows, fix remaining balance sign bugs, and add a dedicated transactions page.
+
+---
+
+#### 9A. Balance Refresh After Transaction (SSE Broadcast)
+
+**Fix:** After `POST /api/transactions`, `PUT /api/transactions/[id]`, and `DELETE /api/transactions/[id]`, the `accounts` table is included in the SSE broadcast so the client invalidates its accounts cache.
+
+- `app/api/transactions/route.ts` — broadcast `{ tables: ["transactions", "accounts"] }` after insert
+- `app/api/transactions/[id]/route.ts` — broadcast both tables after update/delete
+
+---
+
+#### 9B. Transfer Type Consistency
+
+**Fix:** Outgoing transfer rows now use `type: "transfer"` instead of `type: "expense"`. The PUT/DELETE handlers reverse the correct sign depending on type (transfer → same as expense for source account).
+
+- `lib/data-store.ts` — outgoing leg of transfer uses `"transfer"` type
+- `app/api/transactions/[id]/route.ts` — PUT uses `sign = type === "income" ? 1 : -1` (covers both expense and transfer)
+
+---
+
+#### 9C. Default Account Fallback
+
+**Fix:** Command bar expense/income handlers reliably fall back to the member's `default_account_id` when no `@` tag is present.
+
+- `components/dashboard.tsx` — `handleExpense` falls back to `currentMember.defaultAccountId`; `handleIncome` also falls back
+- `hooks/use-spaces.ts` — ensure `currentMember` includes `defaultAccountId`
+
+---
+
+#### 9D. Categories Support
+
+**Feature:** Transaction categorization with seeded defaults, keypad selector, and `#category` command syntax.
+
+**DB Changes:**
+- `supabase/migrations/006_seed_categories.sql` — seeds 8 default categories per space on creation: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Other
+
+**Client Components:**
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Scrollable horizontal category chip row |
+| `components/transaction-list.tsx` | Category label + color dot on each row |
+| `lib/command-parser.ts` | `#food` syntax → `category` output |
+| `components/dashboard.tsx` | `handleExpense` passes parsed category_id |
+| `hooks/use-db.ts` | `useCategories` hook + store support |
+
+---
+
+#### 9E. Notes Input on Expense Keypad
+
+**Feature:** Text input field in ExpenseKeypad for transaction notes.
+
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Text input labeled "Note (optional)" between display and account selector |
+| `lib/command-parser.ts` | Parser preserves note text after removing amount/category/account |
+| `components/dashboard.tsx` | `handleExpense` passes note to payload |
+
+---
+
+#### 9F. UI Polish
+
+| Item | Detail |
+|---|---|
+| **Drawer snapPoints removed** | ExpenseKeypad drawer uses `snapPoints={undefined}` — natural height on all devices |
+| **Toast position** | Changed from `bottom-center` to `top-center` for better visibility |
+| **ExpenseKeypad dual type** | Supports both expense and income modes; toggles sign display |
+
+---
+
+#### 9G. Category Keywords & Auto-Categorization
+
+**Feature:** Keyword-based auto-categorization so recognized terms in notes auto-select the right category.
+
+**DB Changes:**
+- `supabase/migrations/007_category_keywords.sql` — `category_keywords` table (`id`, `space_id`, `category_id`, `keyword`, `created_at`)
+
+**Implementation:**
+- `lib/categories.ts` — `matchCategory(spaceId, text, categories, keywords)` scans text against keyword patterns, returns best-matching `category_id` or null
+- `lib/data-store.ts` — calls `matchCategory` on transaction submit as fallback
+- `components/expense-keypad.tsx` — calls `matchCategory` live on text input to auto-highlight matching category
+- `app/api/category-keywords/route.ts` — GET/POST endpoint for keyword management
+
+---
+
+#### 9H. Transfer Row Merging
+
+**Feature:** In the transaction list, transfer pairs (source + target rows) are visually merged into a single display row showing both sides.
+
+- `components/transaction-list.tsx` — heuristic pairing: same amount + logged_at timestamp within 2 seconds = same transfer; shows as "GoPay → BCA" format with the full amount once, plus smaller text showing "outgoing from GoPay" / "incoming to BCA"
+
+**Multi-Account Transfer:**
+- The two-row model supports cross-account transfers natively — the source row debits one account, the target row credits the other
+
+---
+
+#### 9I. Recalculate Balances Endpoint
+
+**Feature:** Server-side endpoint that replays all transactions to rebuild account balances.
+
+- `app/api/accounts/recalculate/route.ts` — `POST /api/accounts/recalculate` resets all account balances to 0, then replays every transaction ordered by `logged_at`, applying the correct sign per type
+- Used to fix existing data after schema changes or manual edits
+
+---
+
+#### 9J. Dedicated Transactions Page
+
+**Feature:** Full-page transaction list with "See All" link from dashboard.
+
+- `app/transactions/page.tsx` — full transaction list with account filter support
+- Layout matches dashboard style; same `TransactionList` component
+
+---
+
+#### 9K. Balance Sign Fix in Dashboard
+
+**Fix:** The dashboard balance display used `account.balance` directly but did not handle the sign correctly for consolidated display.
+
+- `components/dashboard.tsx` — balance formatting uses `Math.abs()` for display, preserving the raw value for calculations
+- `components/account-detail.tsx` — consistent sign handling
+
+---
+
+### Architecture Rule: Per-Entity Endpoints
+
+**Rule:** All entities MUST have their own API route files. No monolithic `/api/sync`-style endpoints. Each new entity follows:
+
+```
+app/api/<entity>/route.ts      → GET (list by ?spaceId), POST (upsert)
+app/api/<entity>/[id]/route.ts → PUT (partial update), DELETE
+```
+
+The legacy `/api/data` (single endpoint for all tables) is deprecated and must not be extended.
+
+---
+
+### ✅ Phase 10: Settings, Accounts & Category Management
+
+**Status:** 🚧 In Progress
+
+---
+
+#### 10A. Transaction Page Enhancement (`/transactions`)
+
+| Task | Detail |
+|------|--------|
+| **Filter by account** | Add account filter dropdown to `/app/transactions/page.tsx` — filters the `TransactionList` by `accountId`. Pass filtered IDs to list or filter client-side. |
+| **Month picker filter** | Add month/year picker to filter transactions by `loggedAt`. Use a simple `<input type="month">` or Shadcn calendar. Filter client-side from the loaded items for that space. |
+| **Transaction detail drawer — creator & time** | In `TransactionDetail`, show `createdBy` (resolve to user name via members/profiles) and full date-time on `loggedAt` (not just date). Improve the timestamp display with "Created by X at HH:MM" below the date. |
+
+**Files affected:**
+- `app/transactions/page.tsx` — add filter UI, pass filtered items to TransactionList
+- `components/transaction-list.tsx` — accept optional `accountId` / `month` filters
+- `components/transaction-detail.tsx` — show `createdBy` name + time on `loggedAt`
+
+---
+
+#### 10B. Main Page Dashboard Enhancement
+
+| Task | Detail |
+|------|--------|
+| **"See All" on account card** | Add `href="/settings/space/accounts"` link in the Accounts card header (same pattern as Money's "See All"). |
+| **Replace icon-28.png with lifedeck.svg** | Use `public/lifedeck.svg` in the header instead of `/icon-28.png` so the logo adapts to theme colors via CSS. Create the SVG if it doesn't exist — a simple text-based "LD" or "♠" logo that uses `currentColor`. |
+| **Space selector click-outside close** | The backdrop div (`fixed inset-0`) already handles this — verify it works. If not, ensure the overlay `z-index` isn't blocked by other elements. |
+| **Account card skeleton** | Add skeleton shimmer for account balances while loading (similar to existing transaction skeleton). Use `useAccounts` loading state. |
+| **Transfer row opens detail drawer** | Clicking a merged transfer row should open a detail view showing both sides of the transfer. Add `onClick` to merged transfer rows in `TransactionList`. |
+| **Edit transaction — category select** | In `TransactionDetail` edit mode, add a category selector (dropdown or chip picker) so users can change the transaction's category. |
+
+**Files affected:**
+- `components/dashboard.tsx` — "See All" link, icon replacement, account skeleton loading state
+- `components/transaction-list.tsx` — transfer row onClick, open detail
+- `components/transaction-detail.tsx` — category select in edit mode
+- `public/lifedeck.svg` — create new SVG logo
+
+---
+
+#### 10C. Account Management Page (`/settings/space/accounts`)
+
+**New page:** Full account management at `/app/settings/space/accounts/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **List all accounts** | Table/list showing name, balance, default badge, creation date. |
+| **Edit account** | Inline edit or drawer — rename account. |
+| **Delete account** | Confirmation dialog with options: (1) Delete all transactions for this account, (2) Unlink transactions (set `account_id = NULL`). |
+| **Delete cascade logic** | Option 1: `DELETE FROM transactions WHERE account_id = $1` then `DELETE FROM accounts WHERE id = $1`. Option 2: `UPDATE transactions SET account_id = NULL WHERE account_id = $1` then delete account. Update API route to accept `?cascade=delete|unlink`. |
+
+**New files:**
+- `app/settings/space/accounts/page.tsx` — account list page
+- `components/account-manager.tsx` — reusable account CRUD component
+
+**API changes:**
+- `app/api/accounts/[id]/route.ts` — `DELETE` accepts `?cascade=delete|unlink` query param
+- `app/api/accounts/[id]/route.ts` — add `PUT` support for the `name` field (already exists)
+
+---
+
+#### 10D. Login Page Branding
+
+| Task | Detail |
+|------|--------|
+| **Add "LifeDeck" text next to icon** | In both `sign-in/page.tsx` and `sign-up/page.tsx`, add the text "LifeDeck" next to the icon in the card title. |
+
+**Files affected:**
+- `app/(auth)/sign-in/page.tsx` — add "LifeDeck" heading
+- `app/(auth)/sign-up/page.tsx` — add "LifeDeck" heading
+
+---
+
+#### 10E. User Menu Restructure
+
+| Task | Detail |
+|------|--------|
+| **Move out Accounts section** | Remove the Accounts CRUD section from `UserMenu`. It lives in `/settings/space/accounts`. |
+| **Move out Default Payment** | Remove the Default Payment section from `UserMenu`. It lives in `Space Settings`. |
+| **Add "User Settings" shortcut** | Button/link → `/settings/user` |
+| **Add "Space Settings" shortcut** | Button/link → `/settings/space` |
+| **Move out Space Code** | Remove the invite code display from `UserMenu`. It lives in `Space Settings`. |
+| **Restructure layout** | Top: avatar + name + email. Then: Appearance, Preferences, Currency. Then: shortcuts to User Settings, Space Settings. Then: Sign Out. |
+
+**Files affected:**
+- `components/user-menu.tsx` — remove Accounts, Default Payment, Space Code sections; add settings shortcut links
+
+---
+
+#### 10F. Space Settings Page (`/settings/space`)
+
+**New page:** Full space management at `/app/settings/space/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **Rename space** | Inline name editing. |
+| **Accounts section** | Moved from UserMenu — list, add, delete accounts. Same CRUD as Account Page but inline. |
+| **Default Payment** | Moved from UserMenu — select default account per member. |
+| **Category management** | Link to `/settings/space/category` or inline category list with add/edit/delete. |
+| **Space code display** | Moved from UserMenu — show invite code, copy, regenerate. |
+| **Member list** | Show all members of the current space (name, role, joined date). |
+| **Delete space (danger zone)** | Destructive button that deletes the space and all associated data. Confirmation requires typing the space name. Only for non-personal spaces. |
+
+**New files:**
+- `app/settings/space/page.tsx` — space settings page
+- `components/space-settings.tsx` — space settings components
+
+---
+
+#### 10G. User Settings Page (`/settings/user`)
+
+**New page:** User profile management at `/app/settings/user/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **Display name edit** | Text input to update `profiles.display_name`. |
+| **Password change** | Form using `authClient.changePassword()` (Better Auth API). |
+| **Profile picture** | Placeholder with "Coming soon" label. |
+| **Log out** | Destructive button that calls `signOut()`. |
+
+**New files:**
+- `app/settings/user/page.tsx` — user settings page
+- `components/user-settings.tsx` — user settings components
+
+---
+
+#### 10H. Category Management Page (`/settings/space/category`)
+
+**New page:** Full category CRUD at `/app/settings/space/category/page.tsx`.
+
+| Task | Detail |
+|------|--------|
+| **List categories** | Grid or list showing color dot, icon placeholder, name, keyword count. |
+| **Add category** | Form with fields: name (required), color (color picker or preset swatches), icon (icon selector from Lucide), keywords (multi-input, comma/enter separated). |
+| **Edit category** | Same form pre-populated. |
+| **Delete category** | Confirmation — unlink transactions (set `category_id = NULL`) then delete. |
+| **Keyword management** | When editing, show keyword list with add/remove. Each keyword is a small chip with an "×" to remove. |
+| **Missing API route** | Create `app/api/categories/[id]/route.ts` (PUT + DELETE) — currently missing. |
+
+**New files:**
+- `app/settings/space/category/page.tsx` — category management page
+
+**API changes:**
+- `app/api/categories/[id]/route.ts` — create PUT/DELETE handler (currently missing)
+- `app/api/category-keywords/[id]/route.ts` — create DELETE handler for individual keywords
+
+---
+
+#### 10I. Little Enhancements & Polish
+
+| Task | Detail |
+|------|--------|
+| **System navbar black on PWA** | The `<meta name="theme-color">` in `layout.tsx` is hardcoded `#09090b`. The `ThemeMeta` component already updates it dynamically — ensure the static `viewport` export in `layout.tsx` is also removed or matches dynamic behavior. Fix: remove `themeColor` from the static `viewport` export in `layout.tsx` since `ThemeMeta` handles it dynamically. |
+| **Prevent user zoom** | Add `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">` — or set `viewport` export in `layout.tsx` to `{ width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false }`. |
+
+**Files affected:**
+- `app/layout.tsx` — fix theme-color in viewport export; add `maximumScale: 1, userScalable: false`
+
+---
+
+### 📋 Phase 11: Offline-First & Deployment Preparation
+
+**Status:** ❌ Not Started
 
 - Dexie.js (IndexedDB) as primary local store with instant reads/writes (< 50ms) before remote sync
 - Sync queue: operations enqueue locally, flush after 2s debounce (or immediately on sign-out)
 - Background sync: service worker handles pending mutations when connectivity resumes
 - Conflict resolution: last-write-wins with server timestamp authority
 - Deployment to Vercel or custom domain with environment variable provisioning
+
+---
+
+---
+
+## 10. Session Log
+
+### Session 2026-07-24 — Phase 9 Implementation
+
+**Focus:** Auto-categorization, transfers UX, balance fixes, categories, notes input.
+
+**Files Created:**
+```
+app/api/accounts/recalculate/route.ts   — POST recalculate balances
+app/api/category-keywords/route.ts      — GET/POST keyword CRUD
+app/transactions/page.tsx               — Dedicated transactions page
+lib/categories.ts                        — matchCategory() helper
+supabase/migrations/006_seed_categories.sql
+supabase/migrations/007_category_keywords.sql
+Architecture.md                          — New project architecture doc
+```
+
+**Files Modified:**
+- `PRD.md` — bumped to v9.0 with Phase 9, per-entity rule, session log
+- `app/api/transactions/route.ts` — SSE broadcast includes accounts; updated stale comment
+- `app/api/transactions/[id]/route.ts` — sign for transfer type; SSE broadcast accounts
+- `app/layout.tsx` — toast position top-center; removed snapPoints
+- `components/command-bar.tsx` — parse and pass category
+- `components/dashboard.tsx` — handleExpense defaults, balance sign
+- `components/expense-keypad.tsx` — categories, notes, dual type, auto-categorize
+- `components/transaction-list.tsx` — merged transfer rows, category display
+- `components/transaction-detail.tsx` — category field
+- `components/account-detail.tsx` — balance sign
+- `hooks/use-db.ts` — categories support
+- `hooks/use-spaces.ts` — defaultAccountId access
+- `lib/api-utils.ts` — transfer type in snake_case mapping
+- `lib/command-parser.ts` — #category syntax, notes preservation
+- `lib/data-store.ts` — transfer type, matchCategory fallback, persistTransactions
+- `lib/db.ts` — spaces sync
+
+**Key Decisions:**
+1. Transfer pairs stored as two rows (source=transfer, target=income); merged in display via heuristic (same amount + 2s window)
+2. Balance stored as DB column, recalculated by replaying all transactions ordered by `logged_at`
+3. Auto-categorize uses `category_keywords` table; `matchCategory()` matches on longest keyword, called both live (keypad input) and at submit (fallback)
+4. Per-entity API routes are the standard; `/api/data` monolithic endpoint is deprecated
+
+---
+
+### Session 2026-07-24 — Phase 10 Planning
+
+**Focus:** Settings pages, account management, category CRUD, UI polish.
+
+**Phase 10 Overview (9 workstreams):**
+
+| # | Area | Key Deliverables |
+|---|------|-----------------|
+| 10A | Transaction Page Enhancement | Account filter, month picker, creator + time in detail drawer |
+| 10B | Dashboard Enhancement | See All link, SVG logo, skeletons, transfer detail drawer, category edit |
+| 10C | Account Management Page | `/settings/space/accounts` — list, edit, delete with cascade options |
+| 10D | Login Page | "LifeDeck" text branding on sign-in/sign-up |
+| 10E | User Menu Restructure | Remove accounts/default payment/space code; add settings shortcuts |
+| 10F | Space Settings Page | `/settings/space` — rename, accounts, default payment, members, delete |
+| 10G | User Settings Page | `/settings/user` — display name, password, coming-soon avatar, logout |
+| 10H | Category Management | `/settings/space/category` — full CRUD with keywords, color, icon |
+| 10I | Little Enhancements | Dynamic theme-color meta, prevent zoom |
+
+**Key Decisions:**
+1. Accounts & categories get their own settings pages instead of living in the user menu drawer
+2. User menu becomes a slim navigation hub with shortcuts to dedicated settings pages
+3. Category API needs `[id]/route.ts` PUT/DELETE endpoint (currently missing)
+4. Account delete offers cascade options via query param (`?cascade=delete|unlink`)
+5. `lifedeck.svg` will be a simple SVG using `currentColor` for theme adaptation

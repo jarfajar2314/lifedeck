@@ -3,7 +3,9 @@
 import { useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { haptics } from "@/lib/haptics"
-import type { Account } from "@/lib/db"
+import { Input } from "@/components/ui/input"
+import { matchCategory } from "@/lib/categories"
+import type { Account, Category } from "@/lib/db"
 
 const KEYS = [
   ["1", "2", "3"],
@@ -19,16 +21,30 @@ function formatBalance(balance: number): string {
 }
 
 type ExpenseKeypadProps = {
-  onAmount: (amount: number, accountId?: string) => void
+  onAmount: (amount: number, accountId?: string, categoryId?: string, note?: string, txType?: "expense" | "income") => void
   onClose: () => void
   accounts: Account[]
+  categories: Category[]
+  keywordMap: Map<string, string>
 }
 
-export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProps) {
+export function ExpenseKeypad({ onAmount, onClose, accounts, categories, keywordMap }: ExpenseKeypadProps) {
   const [display, setDisplay] = useState("")
+  const [note, setNote] = useState("")
+  const [txType, setTxType] = useState<"expense" | "income">("expense")
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(
     accounts.find((a) => a.isDefault)?.id
   )
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>()
+
+  const handleNoteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value
+    setNote(next)
+    if (!selectedCategoryId || !next) {
+      const matched = matchCategory(next, keywordMap)
+      if (matched) setSelectedCategoryId(matched)
+    }
+  }, [keywordMap, selectedCategoryId])
 
   const handleKey = useCallback((key: string) => {
     haptics.tap()
@@ -45,10 +61,11 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
     const num = parseFloat(display)
     if (!isNaN(num) && num > 0) {
       haptics.success()
-      onAmount(num, selectedAccountId)
+      onAmount(num, selectedAccountId, selectedCategoryId, note || undefined, txType)
       setDisplay("")
+      setNote("")
     }
-  }, [display, onAmount, selectedAccountId])
+  }, [display, onAmount, selectedAccountId, selectedCategoryId, txType])
 
   return (
     <div className="flex flex-col items-center gap-4 p-4" role="group" aria-label="Numeric keypad">
@@ -64,6 +81,60 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
           )}
         </span>
       </div>
+
+      <Input
+        value={note}
+        onChange={handleNoteChange}
+        placeholder="Add a note..."
+        className="h-10 w-full max-w-xs text-sm"
+        aria-label="Transaction note"
+      />
+
+      <div className="flex w-full max-w-xs gap-2">
+        <button
+          onClick={() => setTxType("expense")}
+          className={cn(
+            "flex-1 rounded-full py-1.5 text-xs font-medium transition-colors",
+            txType === "expense"
+              ? "bg-destructive text-destructive-foreground"
+              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          )}
+        >
+          Expense
+        </button>
+        <button
+          onClick={() => setTxType("income")}
+          className={cn(
+            "flex-1 rounded-full py-1.5 text-xs font-medium transition-colors",
+            txType === "income"
+              ? "bg-success text-success-foreground"
+              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          )}
+        >
+          Income
+        </button>
+      </div>
+
+      {categories.length > 0 && (
+        <div className="flex w-full max-w-xs gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Category">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? undefined : cat.id)}
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                selectedCategoryId === cat.id
+                  ? "bg-accent-color text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+              role="radio"
+              aria-checked={selectedCategoryId === cat.id}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {accounts.length > 0 && (
         <div className="flex w-full max-w-xs gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Payment source">

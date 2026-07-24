@@ -87,6 +87,23 @@ export function useSpaces(userId?: string) {
       record: space as unknown as Record<string, unknown>,
     }))
     setCurrentId(id)
+    const defaultCategories = [
+      { name: "Food & Dining", icon: "utensils", color: "#10B981" },
+      { name: "Transport", icon: "car", color: "#3B82F6" },
+      { name: "Shopping", icon: "shopping-bag", color: "#8B5CF6" },
+      { name: "Bills & Utilities", icon: "zap", color: "#F59E0B" },
+      { name: "Entertainment", icon: "film", color: "#EF4444" },
+      { name: "Health", icon: "heart", color: "#EC4899" },
+      { name: "Education", icon: "book", color: "#6366F1" },
+      { name: "Salary", icon: "briefcase", color: "#10B981" },
+      { name: "Freelance", icon: "laptop", color: "#14B8A6" },
+      { name: "Investment", icon: "trending-up", color: "#06B6D4" },
+      { name: "Gift", icon: "gift", color: "#F97316" },
+      { name: "Other", icon: "more-horizontal", color: "#6B7280" },
+    ]
+    for (const cat of defaultCategories) {
+      await store.persist("categories", "add", { id: uid(), spaceId: id, ...cat, createdAt: new Date().toISOString() })
+    }
     return { id, inviteCode }
   }, [setCurrentId])
 
@@ -122,5 +139,6 @@ export function useSpaces(userId?: string) {
     createSpace,
     joinSpace,
     regenerateInviteCode,
+    members,
   }
 }

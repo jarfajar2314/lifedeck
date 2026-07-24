@@ -9,6 +9,7 @@ const COL_MAP: Record<string, Record<string, string>> = {
   spaceMembers: { spaceId: "space_id", userId: "user_id", defaultAccountId: "default_account_id", joinedAt: "joined_at", createdAt: "created_at" },
   accounts: { spaceId: "space_id", isDefault: "is_default", createdAt: "created_at" },
   categories: { spaceId: "space_id", createdAt: "created_at" },
+  categoryKeywords: { spaceId: "space_id", categoryId: "category_id", createdAt: "created_at" },
   profiles: { displayName: "display_name", avatarUrl: "avatar_url", monthlyBudget: "monthly_budget", themePreference: "theme_preference", accentColor: "accent_color", createdAt: "created_at", updatedAt: "updated_at" },
 }
 

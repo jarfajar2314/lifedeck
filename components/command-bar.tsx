@@ -10,8 +10,8 @@ import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 
 type CommandBarProps = {
-  onExpense?: (amount: number, note?: string, account?: string) => void
-  onIncome?: (amount: number, note?: string, account?: string) => void
+  onExpense?: (amount: number, note?: string, account?: string, category?: string) => void
+  onIncome?: (amount: number, note?: string, account?: string, category?: string) => void
   onTransfer?: (amount: number, fromAccount: string, toAccount: string, note?: string) => void
   onTask?: (title: string) => void
   onNote?: (content: string) => void
@@ -60,10 +60,10 @@ export function CommandBar({ onExpense, onIncome, onTransfer, onTask, onNote, ac
 
     switch (result.type) {
       case "expense":
-        onExpense?.(result.amount, result.note, result.account)
+        onExpense?.(result.amount, result.note, result.account, result.category)
         break
       case "income":
-        onIncome?.(result.amount, result.note, result.account)
+        onIncome?.(result.amount, result.note, result.account, result.category)
         break
       case "transfer":
         onTransfer?.(result.amount, result.fromAccount, result.toAccount, result.note)
