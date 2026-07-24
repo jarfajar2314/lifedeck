@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 6.1  
+**Document Version:** 7.0  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -524,7 +524,39 @@ const { id, name } = await res.json();
 
 ---
 
-### 📋 Phase 7: Offline-First & Deployment Preparation
+### 📋 Phase 7: PWA Production Readiness
+
+**Status:** 🔜 Upcoming
+
+**Goal:** Complete the PWA setup so LifeDeck is installable on mobile and desktop with proper icons, splash screens, offline fallback, and a production-grade manifest.
+
+| Task | Details |
+|------|---------|
+| **Generate Icon Set** | Create all required icon sizes from a single source image: 192×192, 512×512, maskable variants (192×192, 512×512), Apple touch icon (180×180), favicon (32×32, 16×16) |
+| **Update Manifest** | Add maskable icons, `categories`, `screenshots`, `iarc_rating_id`, and proper `background_color`/`theme_color` that adapt to the active theme |
+| **Splash Screens** | Add Apple splash screen images for common iPhone/iPad viewport sizes or use `apple-touch-startup-image` with media queries |
+| **Offline Page** | Create a branded `/~offline` page displayed when the network is unavailable (already wired in `sw.ts` — needs a real page) |
+| **Lighthouse Audit** | Run Lighthouse PWA audit; fix any failing checks (installability, HTTPS, service worker scope, etc.) |
+| **Theme-Aware Meta** | Ensure `theme-color` meta tag updates when the user changes themes (dark/light/oled) |
+| **iOS App Bar** | Configure `apple-mobile-web-app-capable`, status bar style, and splash screen for iOS standalone mode |
+
+**Icon Requirements:**
+- `/icon-192.png` (192×192) — standard launcher icon
+- `/icon-512.png` (512×512) — large launcher + splash source
+- `/icon-192-maskable.png` (192×192) — Android adaptive icon foreground
+- `/icon-512-maskable.png` (512×512) — Android adaptive icon foreground
+- `/apple-icon-180.png` (180×180) — iPhone/iPad home screen icon
+- `/favicon.ico` / `/favicon-32x32.png` / `/favicon-16x16.png` — browser tab icon
+
+**Background Sync (Offline Queue):**
+The existing Serwist service worker (`sw.ts`) already caches static assets via `defaultCache`. This task extends offline capability to data operations:
+- Queue pending mutations in IndexedDB when offline
+- Replay queued mutations when the service worker detects connectivity (via `sync` event or `fetch` success after failure)
+- Show visual indicator in the dashboard when offline mutations are pending
+
+---
+
+### 📋 Phase 8: Offline-First & Deployment Preparation
 
 **Status:** ❌ Not Started (moved down; Phase 6 takes priority)
 

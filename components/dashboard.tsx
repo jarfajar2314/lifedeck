@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import Image from "next/image"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
 import { TaskList } from "@/components/task-list"
@@ -9,6 +10,7 @@ import { CommandBar } from "@/components/command-bar"
 import { ExpenseKeypad } from "@/components/expense-keypad"
 import { UserMenu } from "@/components/user-menu"
 import { AccountDetail } from "@/components/account-detail"
+import { OfflineIndicator } from "@/components/offline-indicator"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
@@ -149,10 +151,12 @@ export function Dashboard() {
         Skip to main content
       </a>
 
+      <OfflineIndicator />
+
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight">LifeDeck</h1>
+            <Image src="/icon-28.png" alt="LifeDeck" width={28} height={28} className="shrink-0" priority />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
