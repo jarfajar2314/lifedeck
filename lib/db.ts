@@ -30,6 +30,7 @@ export interface Account {
   id: string
   spaceId: string
   name: string
+  balance: number
   isDefault: boolean
   createdAt: Date
 }

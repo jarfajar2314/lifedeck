@@ -12,6 +12,12 @@ const KEYS = [
   [".", "0", "⌫"],
 ]
 
+function formatBalance(balance: number): string {
+  const abs = Math.abs(balance)
+  const formatted = "Rp" + abs.toLocaleString("id-ID")
+  return balance < 0 ? `-${formatted}` : formatted
+}
+
 type ExpenseKeypadProps = {
   onAmount: (amount: number, accountId?: string) => void
   onClose: () => void
@@ -75,6 +81,9 @@ export function ExpenseKeypad({ onAmount, onClose, accounts }: ExpenseKeypadProp
               aria-checked={selectedAccountId === account.id}
             >
               {account.name}
+              <span className="ml-1 opacity-70 tabular-nums">
+                {formatBalance(account.balance)}
+              </span>
             </button>
           ))}
         </div>

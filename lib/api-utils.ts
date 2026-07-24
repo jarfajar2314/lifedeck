@@ -18,7 +18,7 @@ for (const [t, m] of Object.entries(COL_MAP)) {
   for (const [c, s] of Object.entries(m)) REV_COL_MAP[t][s] = c
 }
 
-const NUMERIC = new Set(["amount", "monthlyBudget"])
+const NUMERIC = new Set(["amount", "monthlyBudget", "balance"])
 
 export function toSnake(table: string, data: Record<string, unknown>): Record<string, unknown> {
   const map = COL_MAP[table] || {}
