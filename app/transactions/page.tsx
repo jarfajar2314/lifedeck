@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { useAccounts, useCategories } from "@/hooks/use-db"
@@ -8,20 +8,23 @@ import { useSpaces } from "@/hooks/use-spaces"
 import { TransactionList } from "@/components/transaction-list"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, Receipt } from "lucide-react"
+import { ArrowLeft, Receipt, Filter } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
-import { useState } from "react"
 
 export default function TransactionsPage() {
   const { user, isPending } = useAuth()
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [accountFilter, setAccountFilter] = useState("")
+  const [monthFilter, setMonthFilter] = useState("")
 
-  const accounts = useAccounts(currentId)
+  const { items: accounts } = useAccounts(currentId)
   const categories = useCategories(currentId)
+
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
   if (isPending) {
     return (
@@ -53,7 +56,7 @@ export default function TransactionsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <Image src="/icon-28.png" alt="LifeDeck" width={28} height={28} className="shrink-0" priority />
+            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
@@ -88,7 +91,42 @@ export default function TransactionsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TransactionList spaceId={currentId} accounts={accounts} categories={categories} />
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <select
+                value={accountFilter}
+                onChange={(e) => setAccountFilter(e.target.value)}
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                aria-label="Filter by account"
+              >
+                <option value="">All accounts</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              <input
+                type="month"
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                aria-label="Filter by month"
+              />
+              {(accountFilter || monthFilter) && (
+                <button
+                  onClick={() => { setAccountFilter(""); setMonthFilter("") }}
+                  className="h-8 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <TransactionList
+              spaceId={currentId}
+              accounts={accounts}
+              categories={categories}
+              accountFilter={accountFilter || undefined}
+              monthFilter={monthFilter || undefined}
+            />
           </CardContent>
         </Card>
       </main>

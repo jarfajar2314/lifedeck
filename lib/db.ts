@@ -24,6 +24,7 @@ export interface SpaceMember {
   role: "owner" | "member"
   defaultAccountId?: string
   joinedAt: Date
+  displayName?: string
 }
 
 export interface Account {
@@ -48,6 +49,7 @@ export interface Transaction {
   id: string
   spaceId: string
   createdBy?: string
+  creatorName?: string
   accountId?: string
   categoryId?: string
   amount: number

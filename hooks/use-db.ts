@@ -205,7 +205,8 @@ export function useCategoryKeywords(spaceId: string) {
 }
 
 export function useAccounts(spaceId: string) {
-  return useTable<Account>("accounts", spaceId).items
+  const { items, loading } = useTable<Account>("accounts", spaceId)
+  return { items, loading }
 }
 
 export function useProfile(userId?: string) {
@@ -213,8 +214,8 @@ export function useProfile(userId?: string) {
   return userId ? items.find((p) => p.id === userId) : undefined
 }
 
-export function useSpaceMembers() {
-  return useTable<SpaceMember>("spaceMembers", undefined).items
+export function useSpaceMembers(spaceId?: string) {
+  return useTable<SpaceMember>("spaceMembers", spaceId).items
 }
 
 export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>): Promise<void> {
@@ -227,7 +228,7 @@ export async function updateProfile(id: string, updates: Partial<Omit<Profile, "
 }
 
 export async function updateSpaceMember(spaceId: string, userId: string, updates: Partial<Omit<SpaceMember, "id" | "spaceId" | "userId" | "joinedAt">>): Promise<void> {
-  await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "update", (items) => {
+  await store.mutateOptimistic<SpaceMember>("spaceMembers", spaceId, "update", (items) => {
     const existing = items.find((m) => m.spaceId === spaceId && m.userId === userId)
     if (!existing) return { items }
     const merged = { ...existing, ...updates }

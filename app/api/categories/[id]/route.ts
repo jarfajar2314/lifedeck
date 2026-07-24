@@ -1,4 +1,4 @@
-import { getPool, query } from "@/lib/pool"
+import { query } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, errorResponse, toSnake } from "@/lib/api-utils"
 import { sseManager } from "@/lib/sse-manager"
 
@@ -8,17 +8,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params
     const body: Record<string, unknown> = await request.json()
 
-    const existing = await query(`SELECT space_id FROM public.accounts WHERE id = $1`, [id])
+    const existing = await query(`SELECT space_id FROM public.categories WHERE id = $1`, [id])
     if (existing.length === 0) return Response.json({ error: "Not found" }, { status: 404 })
     await requireSpaceAccess(userId, existing[0].space_id as string)
 
-    const snake = toSnake("accounts", body)
+    const snake = toSnake("categories", body)
     const cols = Object.keys(snake)
     const vals = Object.values(snake)
     const setClauses = cols.map((c, i) => `${c} = $${i + 2}`).join(", ")
 
-    await query(`UPDATE public.accounts SET ${setClauses} WHERE id = $1`, [id, ...vals])
-    sseManager.broadcast("sync", { tables: ["accounts"] })
+    await query(`UPDATE public.categories SET ${setClauses} WHERE id = $1`, [id, ...vals])
+    sseManager.broadcast("sync", { tables: ["categories"] })
     return Response.json({ ok: true })
   } catch (err) { return errorResponse(err) }
 }
@@ -28,21 +28,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const userId = await requireAuth(request)
     const { id } = await params
 
-    const existing = await query(`SELECT space_id FROM public.accounts WHERE id = $1`, [id])
+    const existing = await query(`SELECT space_id FROM public.categories WHERE id = $1`, [id])
     if (existing.length === 0) return Response.json({ error: "Not found" }, { status: 404 })
     await requireSpaceAccess(userId, existing[0].space_id as string)
 
-    const url = new URL(request.url)
-    const cascade = url.searchParams.get("cascade") || "unlink"
-
-    if (cascade === "delete") {
-      await query(`DELETE FROM public.transactions WHERE account_id = $1`, [id])
-    } else {
-      await query(`UPDATE public.transactions SET account_id = NULL WHERE account_id = $1`, [id])
-      await query(`UPDATE public.space_members SET default_account_id = NULL WHERE default_account_id = $1`, [id])
-    }
-    await query(`DELETE FROM public.accounts WHERE id = $1`, [id])
-    sseManager.broadcast("sync", { tables: ["accounts", "transactions", "spaceMembers"] })
+    await query(`UPDATE public.transactions SET category_id = NULL WHERE category_id = $1`, [id])
+    await query(`DELETE FROM public.category_keywords WHERE category_id = $1`, [id])
+    await query(`DELETE FROM public.categories WHERE id = $1`, [id])
+    sseManager.broadcast("sync", { tables: ["categories", "transactions", "categoryKeywords"] })
     return Response.json({ ok: true })
   } catch (err) { return errorResponse(err) }
 }

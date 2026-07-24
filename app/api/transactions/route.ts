@@ -11,7 +11,13 @@ export async function GET(request: Request) {
     if (!spaceId) return Response.json({ error: "spaceId required" }, { status: 400 })
     await requireSpaceAccess(userId, spaceId)
 
-    const rows = await query(`SELECT * FROM "${TABLE}" WHERE space_id = $1`, [spaceId])
+    const rows = await query(
+      `SELECT t.*, COALESCE(p.display_name, u.name) AS creator_name FROM public.transactions t
+       LEFT JOIN public.profiles p ON p.id = t.created_by
+       LEFT JOIN public.user u ON u.id = t.created_by
+       WHERE t.space_id = $1`,
+      [spaceId]
+    )
     const mapped = rows.map((r) => coerceNumeric(toCamel(TABLE, r)))
     return successResponse(mapped)
   } catch (err) { return errorResponse(err) }

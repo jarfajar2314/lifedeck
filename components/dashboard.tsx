@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useState, useMemo } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
@@ -20,7 +19,8 @@ import { useSpaces } from "@/hooks/use-spaces"
 import { useRealtime } from "@/hooks/use-realtime"
 import { haptics } from "@/lib/haptics"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Wallet, CreditCard, ListChecks, StickyNote, Plus, ArrowUpRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Wallet, CreditCard, ListChecks, StickyNote, Plus, ArrowUpRight, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
@@ -36,7 +36,7 @@ export function Dashboard() {
 
   useRealtime()
 
-  const accounts = useAccounts(currentId)
+  const { items: accounts, loading: accountsLoading } = useAccounts(currentId)
   const categories = useCategories(currentId)
   const categoryKeywords = useCategoryKeywords(currentId)
   const keywordMap = useMemo(() => {
@@ -185,7 +185,7 @@ export function Dashboard() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Image src="/icon-28.png" alt="LifeDeck" width={28} height={28} className="shrink-0" priority />
+            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
@@ -242,15 +242,31 @@ export function Dashboard() {
           </Card>
         </section>
 
-        {accounts.length > 0 && (
+        {accounts.length > 0 || accountsLoading ? (
           <section aria-labelledby="accounts-heading">
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle id="accounts-heading" className="flex items-center gap-2 text-base">
                   <CreditCard className="h-4 w-4" aria-hidden="true" /> Accounts
                 </CardTitle>
+                <Link
+                  href="/settings/space/accounts"
+                  className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary/50"
+                >
+                  See All <ExternalLink className="h-3 w-3" />
+                </Link>
               </CardHeader>
               <CardContent>
+                {accountsLoading ? (
+                  <div className="flex flex-col gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2.5">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                 <div className="flex flex-col gap-1">
                   {accounts.map((a) => (
                     <button
@@ -263,10 +279,11 @@ export function Dashboard() {
                     </button>
                   ))}
                 </div>
+                )}
               </CardContent>
             </Card>
           </section>
-        )}
+        ) : null}
 
         <section aria-labelledby="tasks-heading">
           <Card>

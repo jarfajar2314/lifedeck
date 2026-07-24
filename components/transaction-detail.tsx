@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { toast } from "sonner"
-import { type Transaction } from "@/lib/db"
+import { type Transaction, type Category } from "@/lib/db"
 import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -16,9 +16,10 @@ type TransactionDetailProps = {
   onOpenChange: (open: boolean) => void
   onUpdate: (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  categories?: Category[]
 }
 
-export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, onDelete }: TransactionDetailProps) {
+export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, onDelete, categories }: TransactionDetailProps) {
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -27,6 +28,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   const [type, setType] = useState<"expense" | "income" | "transfer">("expense")
   const [amount, setAmount] = useState("")
   const [note, setNote] = useState("")
+  const [categoryId, setCategoryId] = useState<string>("")
 
   if (!transaction) return null
   const tx = transaction
@@ -37,6 +39,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
     setType(tx.type)
     setAmount(tx.amount.toString())
     setNote(tx.note ?? "")
+    setCategoryId(tx.categoryId ?? "")
     setEditing(true)
     setConfirmDelete(false)
   }
@@ -48,7 +51,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
       return
     }
     setSaving(true)
-    await onUpdate(tx.id, { type, amount: parsed, note: note || undefined })
+    await onUpdate(tx.id, { type, amount: parsed, note: note || undefined, categoryId: categoryId || undefined })
     toast("Transaction updated")
     setSaving(false)
     setEditing(false)
@@ -66,6 +69,10 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
     : tx.type === "income" ? "bg-success/10 text-success"
     : "bg-muted text-muted-foreground"
   const indicatorIcon = tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+
+  const loggedDate = new Date(tx.loggedAt)
+  const formattedDate = loggedDate.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+  const formattedTime = loggedDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setEditing(false); setConfirmDelete(false) } }}>
@@ -100,6 +107,25 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-muted-foreground">Category</label>
+              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {categories?.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-2">
+                        {cat.color && <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: cat.color }} />}
+                        {cat.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-muted-foreground">Note</label>
@@ -145,10 +171,20 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
             {tx.note && (
               <div className="text-center text-sm text-muted-foreground">{tx.note}</div>
             )}
-            <div className="flex justify-center gap-1 text-xs text-muted-foreground">
+            {tx.categoryId && categories?.find((c) => c.id === tx.categoryId) && (
+              <div className="flex justify-center items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categories.find((c) => c.id === tx.categoryId)!.color || "#6B7280" }} />
+                <span className="text-xs text-muted-foreground">{categories.find((c) => c.id === tx.categoryId)!.name}</span>
+              </div>
+            )}
+            <div className="flex flex-col items-center gap-0.5 text-xs text-muted-foreground">
               <time dateTime={new Date(tx.loggedAt).toISOString()}>
-                {new Date(tx.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                {formattedDate}
               </time>
+              <span className="text-muted-foreground/60">{formattedTime}</span>
+              {tx.createdBy && (
+                <span className="text-muted-foreground/40">Created by {tx.creatorName || tx.createdBy}</span>
+              )}
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="destructive" className="flex-1" onClick={() => setConfirmDelete(true)}>

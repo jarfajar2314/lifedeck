@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils"
 import { TransactionDetail } from "@/components/transaction-detail"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WalletMinimal } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { type Transaction, type Account, type Category } from "@/lib/db"
 
 type MergedTransfer = {
@@ -19,6 +21,8 @@ type MergedTransfer = {
   toName: string
   note?: string
   loggedAt: Date
+  sourceTxId: string
+  targetTxId: string
 }
 
 type RowItem = Transaction | MergedTransfer
@@ -28,23 +32,40 @@ type TransactionListProps = {
   limit?: number
   accounts: Account[]
   categories: Category[]
+  accountFilter?: string
+  monthFilter?: string
 }
 
-export function TransactionList({ spaceId, limit, accounts, categories }: TransactionListProps) {
+export function TransactionList({ spaceId, limit, accounts, categories, accountFilter, monthFilter }: TransactionListProps) {
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
+  const [selectedTransfer, setSelectedTransfer] = useState<MergedTransfer | null>(null)
 
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
   const { displayed } = useMemo(() => {
+    let filtered = items
+
+    if (accountFilter) {
+      filtered = filtered.filter((t) => t.accountId === accountFilter)
+    }
+
+    if (monthFilter) {
+      filtered = filtered.filter((t) => {
+        const d = new Date(t.loggedAt)
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+        return ym === monthFilter
+      })
+    }
+
     const paired = new Set<string>()
     const merged: RowItem[] = []
 
-    for (const tx of items) {
+    for (const tx of filtered) {
       if (paired.has(tx.id)) continue
       if (tx.type === "transfer") {
-        const match = items.find(
+        const match = filtered.find(
           (t) => t.id !== tx.id
             && !paired.has(t.id)
             && t.type === "income"
@@ -64,6 +85,8 @@ export function TransactionList({ spaceId, limit, accounts, categories }: Transa
             toName: accountMap.get(match.accountId ?? "")?.name ?? "?",
             note: tx.note?.replace(/^Transfer to /, "") || "Transfer",
             loggedAt: tx.loggedAt,
+            sourceTxId: tx.id,
+            targetTxId: match.id,
           })
           continue
         }
@@ -73,7 +96,7 @@ export function TransactionList({ spaceId, limit, accounts, categories }: Transa
 
     const sliced = limit ? merged.slice(0, limit) : merged
     return { displayed: sliced, hasMore: limit ? merged.length > limit : false }
-  }, [items, accountMap, limit])
+  }, [items, accountMap, limit, accountFilter, monthFilter])
 
   if (loading) {
     return (
@@ -101,101 +124,113 @@ export function TransactionList({ spaceId, limit, accounts, categories }: Transa
     )
   }
 
-  const total = items
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0)
-
   return (
     <>
       <div className="flex flex-col gap-1" role="region" aria-label="Transactions">
-        <div className="flex items-center justify-between px-1 pb-2">
-          <span className="text-xs text-muted-foreground">Recent</span>
-          <span className="text-sm font-semibold text-destructive tabular-nums" aria-label={`Total expenses: Rp${total.toLocaleString("id-ID")}`}>
-            -Rp{total.toLocaleString("id-ID")}
-          </span>
-        </div>
-        {displayed.length > 0 && (
+        {!accountFilter && (
+          <div className="flex items-center justify-between px-1 pb-2">
+            <span className="text-xs text-muted-foreground">Recent</span>
+            <span className="text-sm font-semibold text-destructive tabular-nums" aria-label={`Total expenses: Rp${items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}`}>
+              -Rp{items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}
+            </span>
+          </div>
+        )}
         <ul className="flex flex-col gap-0.5" aria-label="Transaction list">
           <AnimatePresence initial={false}>
-            {displayed.map((row, i) => (
-              <motion.li
-                key={"isMerged" in row ? row.id : (row as Transaction).id}
-                layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
-                transition={{ duration: 0.18, delay: i * 0.02 }}
-              >
-              {row && "isMerged" in row ? (
-                  <div className="flex w-full items-center justify-between rounded-xl px-3 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground" aria-hidden="true">
-                        ↔
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-medium">{row.note || "Transfer"}</p>
-                        <div className="flex items-center gap-1.5">
-                          <time className="text-[10px] text-muted-foreground" dateTime={new Date(row.loggedAt).toISOString()}>
-                            {new Date(row.loggedAt).toLocaleDateString()}
-                          </time>
-                          <span className="text-[10px] text-muted-foreground/60">@{row.fromName} → @{row.toName}</span>
+            {displayed.map((row, i) => {
+              if ("isMerged" in row) {
+                return (
+                  <motion.li
+                    key={row.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
+                    transition={{ duration: 0.18, delay: i * 0.02 }}
+                  >
+                    <button
+                      onClick={() => setSelectedTransfer(row)}
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground" aria-hidden="true">
+                          ↔
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{row.note || "Transfer"}</p>
+                          <div className="flex items-center gap-1.5">
+                            <time className="text-[10px] text-muted-foreground" dateTime={new Date(row.loggedAt).toISOString()}>
+                              {new Date(row.loggedAt).toLocaleDateString()}
+                            </time>
+                            <span className="text-[10px] text-muted-foreground/60">@{row.fromName} → @{row.toName}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      Rp{row.amount.toLocaleString("id-ID")}
-                    </span>
-                  </div>
-                ) : (
-                <button
-                  onClick={() => setSelected(row as Transaction)}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
+                      <span className="text-sm tabular-nums text-muted-foreground">
+                        Rp{row.amount.toLocaleString("id-ID")}
+                      </span>
+                    </button>
+                  </motion.li>
+                )
+              }
+              const tx = row as Transaction
+              return (
+                <motion.li
+                  key={tx.id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.18, delay: i * 0.02 }}
                 >
+                  <button
+                    onClick={() => setSelected(tx)}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
+                  >
                     <div className="flex items-center gap-3">
-                      {(row as Transaction).categoryId && categoryMap.has((row as Transaction).categoryId!) && (
+                      {tx.categoryId && categoryMap.has(tx.categoryId) && (
                         <span
                           className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: categoryMap.get((row as Transaction).categoryId!)!.color || "#6B7280" }}
+                          style={{ backgroundColor: categoryMap.get(tx.categoryId)!.color || "#6B7280" }}
                           aria-hidden="true"
                         />
                       )}
                       <div className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                        (row as Transaction).type === "expense" ? "bg-destructive/10 text-destructive"
-                          : (row as Transaction).type === "income" ? "bg-success/10 text-success"
+                        tx.type === "expense" ? "bg-destructive/10 text-destructive"
+                          : tx.type === "income" ? "bg-success/10 text-success"
                           : "bg-muted text-muted-foreground"
                       )} aria-hidden="true">
-                        {(row as Transaction).type === "expense" ? "↓" : (row as Transaction).type === "income" ? "↑" : "↔"}
+                        {tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"}
                       </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium">{(row as Transaction).note || "Untitled"}</p>
-                      <div className="flex items-center gap-1.5">
-                        <time className="text-[10px] text-muted-foreground" dateTime={new Date((row as Transaction).loggedAt).toISOString()}>
-                          {new Date((row as Transaction).loggedAt).toLocaleDateString()}
-                        </time>
-                        {(row as Transaction).accountId && accountMap.has((row as Transaction).accountId!) && (
-                          <span className="text-[10px] text-muted-foreground/60">@{accountMap.get((row as Transaction).accountId!)!.name}</span>
-                        )}
-                        {(row as Transaction).categoryId && categoryMap.has((row as Transaction).categoryId!) && (
-                          <span className="text-[10px] text-muted-foreground/40">{categoryMap.get((row as Transaction).categoryId!)!.name}</span>
-                        )}
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{tx.note || "Untitled"}</p>
+                        <div className="flex items-center gap-1.5">
+                          <time className="text-[10px] text-muted-foreground" dateTime={new Date(tx.loggedAt).toISOString()}>
+                            {new Date(tx.loggedAt).toLocaleDateString()}
+                          </time>
+                          {tx.accountId && accountMap.has(tx.accountId) && (
+                            <span className="text-[10px] text-muted-foreground/60">@{accountMap.get(tx.accountId)!.name}</span>
+                          )}
+                          {tx.categoryId && categoryMap.has(tx.categoryId) && (
+                            <span className="text-[10px] text-muted-foreground/40">{categoryMap.get(tx.categoryId)!.name}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <span className={cn(
-                    "text-sm font-semibold tabular-nums",
-                    (row as Transaction).type === "expense" && "text-destructive",
-                    (row as Transaction).type === "income" && "text-success"
-                  )}>
-                    {(row as Transaction).type === "expense" ? "-" : "+"}Rp{(row as Transaction).amount.toLocaleString("id-ID")}
-                  </span>
-                </button>
-                )}
-              </motion.li>
-            ))}
+                    <span className={cn(
+                      "text-sm font-semibold tabular-nums",
+                      tx.type === "expense" && "text-destructive",
+                      tx.type === "income" && "text-success"
+                    )}>
+                      {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+                    </span>
+                  </button>
+                </motion.li>
+              )
+            })}
           </AnimatePresence>
         </ul>
-      )}
       </div>
 
       <TransactionDetail
@@ -204,7 +239,34 @@ export function TransactionList({ spaceId, limit, accounts, categories }: Transa
         onOpenChange={(v) => { if (!v) setSelected(null) }}
         onUpdate={update}
         onDelete={remove}
+        categories={categories}
       />
+
+      <Sheet open={selectedTransfer !== null} onOpenChange={(v) => { if (!v) setSelectedTransfer(null) }}>
+        <SheetContent side="bottom" aria-label="Transfer detail">
+          <SheetHeader>
+            <SheetTitle>Transfer</SheetTitle>
+            <SheetDescription>Transfer between accounts.</SheetDescription>
+          </SheetHeader>
+          {selectedTransfer && (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">↔</div>
+              <span className="text-2xl font-bold tabular-nums">Rp{selectedTransfer.amount.toLocaleString("id-ID")}</span>
+              <div className="text-center text-sm font-medium">{selectedTransfer.note}</div>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span>@{selectedTransfer.fromName}</span>
+                <span>→</span>
+                <span>@{selectedTransfer.toName}</span>
+              </div>
+              <div className="text-center text-xs text-muted-foreground">
+                <time dateTime={new Date(selectedTransfer.loggedAt).toISOString()}>
+                  {new Date(selectedTransfer.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </time>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   )
 }
