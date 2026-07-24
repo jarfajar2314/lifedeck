@@ -148,7 +148,7 @@ export async function mutateOptimistic<T extends Row>(
   const { items, record, id } = updater(prev.items)
   setSnapshot(e, { items, loading: false, error: null })
   try {
-    await persist(table, op, record, id)
+    await persist(table, op, record, id || (record?.id as string | undefined))
   } catch (err) {
     setSnapshot(e, prev)
     throw err

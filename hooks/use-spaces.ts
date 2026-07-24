@@ -90,25 +90,18 @@ export function useSpaces(userId?: string) {
     return { id, inviteCode }
   }, [setCurrentId])
 
-  const joinSpace = useCallback(async (inviteCode: string) => {
-    const allSpacesList = await store.list<Space>("spaces")
-    const space = allSpacesList.find((s) => s.inviteCode === inviteCode.toUpperCase())
-    if (!space) return null
-    if (userId) {
-      const existingMembers = await store.list<SpaceMember>("spaceMembers")
-      const existing = existingMembers.find((m) => m.spaceId === space.id && m.userId === userId)
-      if (!existing) {
-        const member = { id: uid(), spaceId: space.id, userId, role: "member" as const, joinedAt: new Date().toISOString() } as unknown as SpaceMember
-        await store.mutateOptimistic<SpaceMember>("spaceMembers", undefined, "add", (items) => ({
-          items: [...items, member],
-          record: member as unknown as Record<string, unknown>,
-        }))
-      }
-    }
-    store.invalidate(["spaces"])
-    setCurrentId(space.id)
-    return space
-  }, [userId, setCurrentId])
+  const joinSpace = useCallback(async (inviteCode: string): Promise<Space | null> => {
+    const res = await fetch("/api/spaces/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteCode: inviteCode.toUpperCase() }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    store.invalidate(["spaces", "spaceMembers"])
+    setCurrentId(data.id)
+    return { id: data.id, name: data.name, inviteCode: "", createdAt: new Date() } as Space
+  }, [setCurrentId])
 
   const regenerateInviteCode = useCallback(async (spaceId: string) => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
