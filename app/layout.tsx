@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeMeta } from "@/components/theme-meta"
 import { AuthProvider } from "@/components/auth-provider"
 import { Toaster } from "sonner"
 
@@ -43,6 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-dvh flex flex-col bg-background text-foreground">
         <ThemeProvider>
+          <ThemeMeta />
           <AuthProvider>
             {children}
             <Toaster position="top-center" richColors />

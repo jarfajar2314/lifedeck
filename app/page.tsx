@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
 import { Dashboard } from "@/components/dashboard"
 import { Button } from "@/components/ui/button"
@@ -22,7 +23,9 @@ export default function Home() {
       <div className="flex min-h-dvh items-center justify-center p-4">
         <Card className="w-full max-w-sm text-center">
           <CardHeader>
-            <CardTitle className="text-2xl">LifeDeck</CardTitle>
+            <CardTitle className="text-2xl">
+              <Image src="/icon-32.png" alt="LifeDeck" width={32} height={32} className="mx-auto" priority />
+            </CardTitle>
             <CardDescription>Personal & Household Command Center</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">

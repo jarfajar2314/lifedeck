@@ -78,7 +78,59 @@ export async function list<T>(table: string, spaceId?: string): Promise<T[]> {
   return json.data as T[]
 }
 
+type QueueItem = {
+  table: string
+  op: "add" | "update" | "delete"
+  data?: Record<string, unknown>
+  id?: string
+  timestamp: number
+}
+
+const QUEUE_KEY = "lifedeck-offline-queue"
+const listeners$ = new Set<() => void>()
+
+function getQueue(): QueueItem[] {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]")
+  } catch {
+    return []
+  }
+}
+
+export function getQueuedCount(): number {
+  return getQueue().length
+}
+
+function setQueue(q: QueueItem[]): void {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q))
+  listeners$.forEach((fn) => fn())
+}
+
+export function subscribeQueue(cb: () => void): () => void {
+  listeners$.add(cb)
+  return () => listeners$.delete(cb)
+}
+
+export async function flushQueue(): Promise<void> {
+  const q = getQueue()
+  if (q.length === 0) return
+  for (const item of q) {
+    try {
+      await persist(item.table, item.op, item.data, item.id)
+    } catch {
+      return
+    }
+  }
+  setQueue([])
+}
+
 export async function persist(table: string, op: "add" | "update" | "delete", data?: Record<string, unknown>, id?: string): Promise<void> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    const q = getQueue()
+    q.push({ table, op, data, id, timestamp: Date.now() })
+    setQueue(q)
+    return
+  }
   const path = apiPath(table)
   let res: Response
   if (op === "delete") {

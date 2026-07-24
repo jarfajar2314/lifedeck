@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { authClient } from "@/lib/auth-client"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -39,7 +40,9 @@ export default function SignUpPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">LifeDeck</CardTitle>
+          <CardTitle className="text-2xl">
+            <Image src="/icon-32.png" alt="LifeDeck" width={32} height={32} className="mx-auto" priority />
+          </CardTitle>
           <CardDescription>Create your account</CardDescription>
         </CardHeader>
         <CardContent>
