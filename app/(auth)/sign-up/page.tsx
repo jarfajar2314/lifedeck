@@ -40,8 +40,9 @@ export default function SignUpPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
-            <Image src="/icon-32.png" alt="LifeDeck" width={32} height={32} className="mx-auto" priority />
+          <CardTitle className="text-2xl flex items-center justify-center gap-2">
+            <Image src="/icon-32.png" alt="LifeDeck" width={32} height={32} priority />
+            <span>LifeDeck</span>
           </CardTitle>
           <CardDescription>Create your account</CardDescription>
         </CardHeader>

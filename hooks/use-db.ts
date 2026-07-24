@@ -205,7 +205,8 @@ export function useCategoryKeywords(spaceId: string) {
 }
 
 export function useAccounts(spaceId: string) {
-  return useTable<Account>("accounts", spaceId).items
+  const { items, loading } = useTable<Account>("accounts", spaceId)
+  return { items, loading }
 }
 
 export function useProfile(userId?: string) {
