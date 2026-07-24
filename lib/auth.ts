@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
 import { PostgresDialect } from "kysely"
-import { Pool } from "pg"
+import { getPool } from "@/lib/pool"
 
 const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS || "")
   .split(",")
@@ -30,15 +30,40 @@ async function initAuth() {
     return betterAuth(baseConfig(memoryAdapter({ user: [], session: [], account: [], verification: [] })))
   }
 
-  const connStr = raw.replace(/\?sslmode=\w+/, "").replace(/&sslmode=\w+/, "")
+  const pool = getPool()
 
-  return betterAuth(baseConfig(new PostgresDialect({
-    pool: new Pool({
-      connectionString: connStr,
-      max: 10,
-      ssl: { rejectUnauthorized: false },
-    }),
-  })))
+  return betterAuth({
+    ...baseConfig(new PostgresDialect({ pool })),
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            try {
+              const spaceId = crypto.randomUUID()
+              const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+
+              await pool.query(
+                `INSERT INTO public.profiles (id, currency, monthly_budget, theme_preference, accent_color, created_at, updated_at) VALUES ($1, 'IDR', 0, 'dark', 'emerald', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+                [user.id]
+              )
+
+              await pool.query(
+                `INSERT INTO public.spaces (id, name, invite_code, created_at) VALUES ($1, 'Personal', $2, NOW()) ON CONFLICT DO NOTHING`,
+                [spaceId, inviteCode]
+              )
+
+              await pool.query(
+                `INSERT INTO public.space_members (id, space_id, user_id, role, joined_at, created_at) VALUES ($1, $2, $3, 'owner', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+                [crypto.randomUUID(), spaceId, user.id]
+              )
+            } catch (err) {
+              console.error("[auth] failed to create personal space:", err)
+            }
+          },
+        },
+      },
+    },
+  })
 }
 
 export const auth = await initAuth()

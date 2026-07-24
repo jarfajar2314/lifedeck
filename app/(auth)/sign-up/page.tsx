@@ -16,13 +16,17 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
   const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setError("")
+    setSubmitting(true)
     const { data, error: err } = await authClient.signUp.email({ email, password, name })
     if (err) {
       setError(err.message || "Failed to sign up")
+      setSubmitting(false)
       return
     }
     if (data) {
@@ -61,7 +65,9 @@ export default function SignUpPage() {
               required
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">Create Account</Button>
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Creating account..." : "Create Account"}
+            </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Already have an account?{" "}

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Copy, RefreshCw, LogIn } from "lucide-react"
+import { Copy, RefreshCw, LogIn, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 type InviteDialogProps = {
@@ -20,6 +20,7 @@ export function InviteDialog({ open, onOpenChange, inviteCode, currentSpaceName,
   const [tab, setTab] = useState<"share" | "join">("share")
   const [joinCode, setJoinCode] = useState("")
   const [regenerating, setRegenerating] = useState(false)
+  const [joining, setJoining] = useState(false)
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -43,8 +44,10 @@ export function InviteDialog({ open, onOpenChange, inviteCode, currentSpaceName,
   }
 
   const handleJoin = async () => {
-    if (!joinCode.trim()) return
+    if (!joinCode.trim() || joining) return
+    setJoining(true)
     const result = await onJoin(joinCode.trim().toUpperCase())
+    setJoining(false)
     if (result) {
       toast("Joined space!")
       onOpenChange(false)
@@ -108,8 +111,8 @@ export function InviteDialog({ open, onOpenChange, inviteCode, currentSpaceName,
                 maxLength={8}
                 onKeyDown={(e) => e.key === "Enter" && handleJoin()}
               />
-              <Button size="icon" onClick={handleJoin} aria-label="Join space">
-                <LogIn className="h-4 w-4" />
+              <Button size="icon" onClick={handleJoin} disabled={joining} aria-label="Join space">
+                {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
               </Button>
             </div>
           </div>

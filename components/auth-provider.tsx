@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { authClient } from "@/lib/auth-client"
+import { clearAll } from "@/lib/data-store"
 import type { Session, User } from "better-auth"
 
 type AuthContextValue = {
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authClient.signOut()
     setUser(null)
     setSession(null)
+    clearAll()
   }
 
   return (

@@ -2,10 +2,10 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 5.1  
+**Document Version:** 6.1  
 **Project Name:** LifeDeck  
 **Status:** In Development  
-**Date:** July 23, 2026  
+**Date:** July 24, 2026  
 
 ---
 
@@ -45,6 +45,9 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 | **Notes** | Thinker | Jot down quick micro-notes or scratchpad thoughts | I don't lose fleeting ideas or important reference snippets. |
 | **System** | Offline User | Capture data while offline in remote areas | The app saves locally immediately and syncs to Supabase when reconnected. |
 | **Account Tagging** | Finance User | Type `25k lunch @gopay` to attach a payment source | Transactions are automatically categorized by account without extra taps. |
+| **Balance Tracking** | Finance User | See my GoPay balance decrease by 25,000 when I log `25k lunch @gopay` | I know how much money is left in each payment source without checking a separate app. |
+| **Account Suggestion** | Finance User | Type `@` in the command bar and see a popover of my accounts filtered by what I type | I don't need to memorize account names — autocomplete guides me. |
+| **Create on Miss** | Finance User | Type `@newaccount` and get a "Create & Retry" button when no account matches | I can create a missing account inline without leaving the expense flow. |
 | **Settings** | User | Open a user menu to adjust theme, currency, and default payment | I can tailor the app to my preferences without leaving the dashboard. |
 
 ---
@@ -62,14 +65,30 @@ Powered by a Universal Command Parser, users can type or tap a single input bar 
 - **Low-Friction Animations:** Micro-transitions (150ms–200ms) for drawer slide-ups, card swipes, and state updates using Framer Motion / Tailwind animate.
 
 ### 3.3 Selectable Color Themes
-LifeDeck supports dynamic theme switching stored in local preference and synced across sessions:
-- **Dark Mode (Default):** Deep slate/zinc dark palette (`#09090b`) to reduce eye strain and battery usage on mobile OLED screens.
-- **Light Mode:** High-contrast crisp white/gray theme for clear daylight outdoor visibility.
+
+LifeDeck uses a two-tier theme system: **Base modes** (Dark / Amoled / Light) with optional **Accent** presets, plus **Predefined themes** that set all colors independently.
+
+**Theme Key Storage:** A single `themeKey` string is persisted in `localStorage` and synced to `profiles.themePreference`. Format:
+- `"dark+emerald"`, `"light+violet"`, `"oled+pink"` — base mode + accent
+- `"pink-power"`, `"royal-purple"` — predefined themes (no accent sub-option)
+
+**Base Modes (3):**
+- **Dark (Default):** Deep slate/zinc dark palette (`#09090b`) to reduce eye strain and battery usage on mobile OLED screens.
+- **Light:** High-contrast crisp white/gray theme for clear daylight outdoor visibility.
 - **OLED Pitch Black:** True dark theme (`#000000`) for maximum energy efficiency on mobile OLED displays.
-- **Accent Theme Presets:** Customizable primary accent color highlights:
-  - Emerald Green (Financial focus)
-  - Electric Violet (Productivity focus)
-  - Ocean Cyan (Calming focus)
+
+**Accent Presets (4, available when a base mode is active):**
+- Emerald Green (Financial focus) — `oklch(0.72 0.18 160)`
+- Electric Violet (Productivity focus) — `oklch(0.68 0.22 290)`
+- Ocean Cyan (Calming focus) — `oklch(0.72 0.18 195)`
+- Vibrant Pink (Energetic focus) — `oklch(0.68 0.22 350)`
+
+**Predefined Themes (2):**
+- **Pink Power** — Light pink background (`oklch(0.98 0.015 330)`), vibrant pink primary (`oklch(0.68 0.24 330)`), bright cyan secondary (`oklch(0.6 0.2 190)`), full tree of CSS variables set inline via JS.
+- **Royal Purple** — Light purple background (`oklch(0.97 0.02 270)`), vibrant purple primary (`oklch(0.55 0.22 270)`), bright yellow secondary (`oklch(0.72 0.2 80)`), full tree of CSS variables set inline via JS.
+
+**Theme-Aware Semantic Colors:**
+A `--success` CSS variable (`oklch(0.55 0.18 142)`) is added alongside `--destructive`. Components that show income/complete states use `text-success` / `bg-success` instead of hardcoded `text-emerald-500` / `bg-emerald-500`, so they adapt to any theme.
 
 ### 3.4 Accessibility (a11y) Standards
 - **Contrast Compliance:** All text and icon elements strictly meet WCAG 2.1 AA contrast ratios.
@@ -103,8 +122,9 @@ The bottom sticky bar in LifeDeck acts as a universal router:
 
 1. **Expense Rule:** If the input starts with a number or currency shorthand (e.g., `25k`, `150k`, `$15`), route to Transactions.
    - *Example:* `25k lunch @gopay` ➔ Amount: 25,000, Category: Food, Account: Gopay.
-   - The `@account` tag is resolved to an `accountId` via Dexie lookup scoped to the current space.
-   - If no `@` tag is provided, the user's default account for that space (from `space_members.default_account_id`) is used.
+- The `@account` tag is resolved to an `accountId` via Dexie lookup scoped to the current space.
+- If no `@` tag is provided, the user's default account for that space (from `space_members.default_account_id`) is used.
+- **Inline Account Suggestion Popover:** When the input contains `@`, the CommandBar detects the partial account name after it and shows a floating popover below the input with matching accounts from the current space. Clicking or tapping a suggestion replaces the partial `@` tag with the full account name. If no account matches the partial name, the popover shows a "+ Create" button that creates the account via `POST /api/accounts` then retries the transaction. Case-insensitive matching is used throughout.
 2. **Task Rule:** If the input starts with `todo`, `task`, or `[]`, route to Tasks.
    - *Example:* `todo Buy milk tomorrow` ➔ Task: Buy milk, Due: Tomorrow.
 3. **Note Rule:** If the input starts with `note` or is plain text without monetary values, route to Quick Notes.
@@ -152,6 +172,7 @@ Data within LifeDeck is scope-bound to a Space:
 - **Default Payment Account:** Per-space default account stored in `space_members.default_account_id`.
   - When a user creates an expense without an `@account` tag, it assigns to this default account.
   - The `default_account_id` column references `accounts(id)` and is nullable.
+  - The Default Payment section in UserMenu displays each account's current balance inline.  
 
 ### 6.3 Cross-Device Sync Infrastructure
 - Offline-first: writes go to local Dexie.js (IndexedDB) instantly, then sync to PostgreSQL via `/api/sync`.
@@ -249,6 +270,7 @@ CREATE TABLE IF NOT EXISTS public.accounts (
   id TEXT PRIMARY KEY,  
   space_id TEXT NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,  
   name TEXT NOT NULL,  
+  balance NUMERIC(12, 2) NOT NULL DEFAULT 0,  
   is_default BOOLEAN DEFAULT FALSE,  
   created_at TIMESTAMPTZ DEFAULT NOW()  
 );  
@@ -371,15 +393,143 @@ CREATE POLICY "Users can view members of their spaces" ON public.space_members
 - ✅ Theme contrast verification across all four themes
 - ✅ Mobile-first responsive layout with thumb-zone targets
 
-### 🔄 Phase 5: Payment Parsing, User Settings & True Realtime
+### ✅ Phase 5: Payment Parsing, User Settings & True Realtime
 
-**Status:** In Progress
+**Status:** ✅ Completed
 
 - ✅ **Payment Source Parser** — `25k milk @gopay` resolves `@gopay` to an `accountId` via Dexie lookup; ExpenseKeypad gets a payment source selector dropdown; falls back to user's default account if no `@` tag.
 - ✅ **User Menu & Settings Drawer** — Bottom-sheet triggered by avatar/name in header; profile info, theme/accent toggles, currency selector, default account per space, space invite settings, sign out.
 - ✅ **True Realtime via SSE + PostgreSQL LISTEN/NOTIFY** — Sync API emits `NOTIFY` after writes; shared SSE manager pushes events to connected browser clients; polling remains as 10s fallback.
 
-### 📋 Future Considerations
-- Edge case handling for sync conflicts
-- Performance optimization for large datasets
-- Deployment preparation (Vercel / custom domain)
+### 🔄 Phase 6: Account Balance Tracking, Inline Suggestions & Shared Space Fix
+
+**Status:** In Progress
+
+**Overview:** Three interconnected features that complete the finance loop and fix a critical collaboration bug.
+
+---
+
+#### 6A. Balance Deduction on Transaction Create
+
+**Goal:** Expenses deduct from the tagged account's balance; income adds to it.
+
+**DB Change:**
+```sql
+ALTER TABLE public.accounts ADD COLUMN balance NUMERIC(12, 2) NOT NULL DEFAULT 0;
+```
+
+**Server-side Logic (`POST /api/transactions`):**
+| Transaction Type | Balance Effect |
+|---|---|
+| `expense` | `balance = balance - amount` |
+| `income` | `balance = balance + amount` |
+| `transfer` | TBD — deduct from source, add to target |
+
+- Balance update happens inside the same request within a single DB transaction (BEGIN/COMMIT) using `pg.Pool` client query.
+- Only `accountId` on the transaction is needed — no new fields.
+
+**Client-side Updates:**
+| Component | Change |
+|---|---|
+| `lib/db.ts` — `Account` interface | Add `balance: number` field |
+| `components/expense-keypad.tsx` | Account chips display `GoPay (Rp450K)` — balance formatted alongside name |
+| `components/transaction-list.tsx` | Each row shows an `@account` tag badge next to the amount |
+| `components/user-menu.tsx` | Default Payment section shows balances next to each account name |
+
+**Case-Insensitive Account Matching:**
+All account resolution throughout the app uses:
+```ts
+accounts.find(a => a.name.toLowerCase() === accountName.toLowerCase())
+```
+Required locations:
+- `lib/command-parser.ts` — already produces `{ account?: string }` output; matching must be case-insensitive
+- `components/dashboard.tsx` — `handleExpense()` resolves account names before posting
+- Any other account name → ID resolution path
+
+---
+
+#### 6B. Inline Account Suggestion Popover (Command Bar)
+
+**Goal:** When the user types `@` in the CommandBar, a floating popover shows matching accounts as a typeahead, with a create-on-miss fallback.
+
+**Flow:**
+1. User types `25k lunch @go` into the CommandBar
+2. A floating popover appears below the input, positioned absolutely above the keypad/drawer area
+3. Popover shows filtered list of accounts where `name` includes the partial after `@` (case-insensitive)
+4. User taps a suggestion → `@go` is replaced with `@GoPay` in the input
+5. If no accounts match → popover shows: *"No accounts match '@go'"* with a **"+ Create '@go'"** button
+6. Tapping "+ Create" calls `POST /api/accounts { name: "go", space_id }`, then replaces `@go` with `@Go` in the input
+7. Hitting Enter with an unmatched `@account` shows a toast: *"Account 'go' not found"* with a **"Create & Retry"** button that creates the account and re-submits the transaction
+
+**Implementation:**
+- `components/command-bar.tsx` receives `accounts: Account[]` prop from Dashboard
+- On input change, regex detects `@(\w*)$` — extracts partial account name
+- Filter logic: `accounts.filter(a => a.name.toLowerCase().includes(partial.toLowerCase()))`
+- Popover uses Shadcn's `Popover` or a simple absolutely-positioned `div` with `shadow-lg` and `rounded-lg`
+- Each suggestion row: account name + formatted balance (e.g., `GoPay — Rp450K`)
+- Create-on-miss: optimistically adds account to local `accounts` array after API success
+
+---
+
+#### 6C. Shared Space Join Fix
+
+**Goal:** Fix broken `joinSpace()` so users can actually join shared spaces.
+
+**Current Bug:**
+`joinSpace()` in `hooks/use-spaces.ts` reads from `store.list("spaces")` — which only returns spaces the current user is already a member of. This makes it impossible to find and join a space by invite code.
+
+**Fix:**
+Replace local list lookup with a dedicated API endpoint:
+
+```ts
+// hooks/use-spaces.ts — joinSpace()
+const res = await fetch("/api/spaces/join", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ inviteCode }),
+});
+const { id, name } = await res.json();
+// Add to optimistic cache, set as current space
+```
+
+**API Route (`app/api/spaces/join/route.ts`):**
+1. Validates `inviteCode` against `spaces.invite_code`
+2. Inserts `space_members` row for the requesting user
+3. Returns `{ id, name }` of the joined space
+4. Returns 404 if invite code not found
+5. Returns 409 if already a member
+
+**Client-side Changes:**
+- `hooks/use-spaces.ts` — `joinSpace()` uses `fetch POST /api/spaces/join` instead of local Dexie lookup
+- `components/invite-dialog.tsx` — shows loading spinner while join request is in flight (disabled button + spinner icon)
+- On server error, toast shows the error message; user can retry
+
+---
+
+#### 6D. UI Balance Visibility
+
+**Goal:** Users see account balances at every touchpoint.
+
+| Component | What It Shows |
+|---|---|
+| **ExpenseKeypad** account selector | Each chip: `GoPay (Rp450K)` |
+| **TransactionList** row | Small `@GoPay` badge next to amount |
+| **UserMenu → Default Payment section** | Each account: `GoPay — Rp450K` |
+| **CommandBar suggestion popover** | Each result: `GoPay — Rp450K` |
+
+**Balance Formatting:**
+- Use `Intl.NumberFormat` with the user's selected currency from `profile.currency`
+- Zero balance: `GoPay (Rp0)` — show it; don't hide
+- Negative balance: `GoPay (-Rp5K)` — prefix with minus sign
+
+---
+
+### 📋 Phase 7: Offline-First & Deployment Preparation
+
+**Status:** ❌ Not Started (moved down; Phase 6 takes priority)
+
+- Dexie.js (IndexedDB) as primary local store with instant reads/writes (< 50ms) before remote sync
+- Sync queue: operations enqueue locally, flush after 2s debounce (or immediately on sign-out)
+- Background sync: service worker handles pending mutations when connectivity resumes
+- Conflict resolution: last-write-wins with server timestamp authority
+- Deployment to Vercel or custom domain with environment variable provisioning
