@@ -214,8 +214,8 @@ export function useProfile(userId?: string) {
   return userId ? items.find((p) => p.id === userId) : undefined
 }
 
-export function useSpaceMembers() {
-  return useTable<SpaceMember>("spaceMembers", undefined).items
+export function useSpaceMembers(spaceId?: string) {
+  return useTable<SpaceMember>("spaceMembers", spaceId).items
 }
 
 export async function updateProfile(id: string, updates: Partial<Omit<Profile, "id" | "createdAt">>): Promise<void> {

@@ -6,7 +6,7 @@ const COL_MAP: Record<string, Record<string, string>> = {
   tasks: { spaceId: "space_id", createdBy: "created_by", assignedTo: "assigned_to", isCompleted: "is_completed", dueDate: "due_date", completedAt: "completed_at", createdAt: "created_at" },
   notes: { spaceId: "space_id", createdBy: "created_by", isPinned: "is_pinned", createdAt: "created_at", updatedAt: "updated_at" },
   spaces: { inviteCode: "invite_code", createdAt: "created_at" },
-  spaceMembers: { spaceId: "space_id", userId: "user_id", defaultAccountId: "default_account_id", joinedAt: "joined_at", createdAt: "created_at" },
+  spaceMembers: { spaceId: "space_id", userId: "user_id", defaultAccountId: "default_account_id", joinedAt: "joined_at", createdAt: "created_at", displayName: "display_name" },
   accounts: { spaceId: "space_id", isDefault: "is_default", createdAt: "created_at" },
   categories: { spaceId: "space_id", createdAt: "created_at" },
   categoryKeywords: { spaceId: "space_id", categoryId: "category_id", createdAt: "created_at" },

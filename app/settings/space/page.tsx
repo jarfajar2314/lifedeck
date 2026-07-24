@@ -33,7 +33,7 @@ export default function SpaceSettingsPage() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const { items: accounts } = useAccounts(currentId)
-  const allMembers = useSpaceMembers()
+  const allMembers = useSpaceMembers(currentId)
 
   const currentSpace = spaces.find((s) => s.id === currentId)
   const currentMember = allMembers.find((m) => m.spaceId === currentId && m.userId === user?.id)
