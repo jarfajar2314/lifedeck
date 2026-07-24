@@ -42,9 +42,10 @@ async function initAuth() {
               const spaceId = crypto.randomUUID()
               const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
 
+              const displayName = (user as any).name || null
               await pool.query(
-                `INSERT INTO public.profiles (id, currency, monthly_budget, theme_preference, accent_color, created_at, updated_at) VALUES ($1, 'IDR', 0, 'dark', 'emerald', NOW(), NOW()) ON CONFLICT DO NOTHING`,
-                [user.id]
+                `INSERT INTO public.profiles (id, display_name, currency, monthly_budget, theme_preference, accent_color, created_at, updated_at) VALUES ($1, $2, 'IDR', 0, 'dark', 'emerald', NOW(), NOW()) ON CONFLICT DO NOTHING`,
+                [user.id, displayName]
               )
 
               await pool.query(

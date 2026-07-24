@@ -49,6 +49,7 @@ export interface Transaction {
   id: string
   spaceId: string
   createdBy?: string
+  creatorName?: string
   accountId?: string
   categoryId?: string
   amount: number

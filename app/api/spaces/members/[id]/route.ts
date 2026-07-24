@@ -15,8 +15,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     await requireSpaceAccess(userId, existing[0].space_id as string)
 
     const snake = toSnake(TABLE, body)
+    delete snake.display_name
     const cols = Object.keys(snake)
     const vals = Object.values(snake)
+    if (cols.length === 0) return Response.json({ ok: true })
     const setClauses = cols.map((c, i) => `${c} = $${i + 2}`).join(", ")
 
     await query(`UPDATE public.space_members SET ${setClauses} WHERE id = $1`, [id, ...vals])

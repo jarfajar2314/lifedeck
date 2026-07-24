@@ -183,7 +183,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               </time>
               <span className="text-muted-foreground/60">{formattedTime}</span>
               {tx.createdBy && (
-                <span className="text-muted-foreground/40">Created by {tx.createdBy}</span>
+                <span className="text-muted-foreground/40">Created by {tx.creatorName || tx.createdBy}</span>
               )}
             </div>
             <div className="flex gap-2 pt-2">
