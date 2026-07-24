@@ -35,6 +35,7 @@ const API_PATHS: Record<string, string> = {
   spaceMembers: "/api/spaces/members",
   accounts: "/api/accounts",
   categories: "/api/categories",
+  categoryKeywords: "/api/category-keywords",
   profiles: "/api/profiles",
 }
 

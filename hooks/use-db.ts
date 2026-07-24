@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react"
 import { toast } from "sonner"
-import type { Transaction, Task, Note, Category, Account, Profile, SpaceMember } from "@/lib/db"
+import type { Transaction, Task, Note, Category, CategoryKeyword, Account, Profile, SpaceMember } from "@/lib/db"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 
@@ -198,6 +198,10 @@ export function useNotes(spaceId: string) {
 
 export function useCategories(spaceId: string) {
   return useTable<Category>("categories", spaceId).items
+}
+
+export function useCategoryKeywords(spaceId: string) {
+  return useTable<CategoryKeyword>("categoryKeywords", spaceId).items
 }
 
 export function useAccounts(spaceId: string) {

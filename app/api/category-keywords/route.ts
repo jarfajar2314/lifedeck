@@ -1,8 +1,8 @@
-import { query, getPool } from "@/lib/pool"
+import { query } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, toCamel, coerceNumeric, errorResponse, successResponse, toSnake } from "@/lib/api-utils"
 import { sseManager } from "@/lib/sse-manager"
 
-const TABLE = "transactions"
+const TABLE = "category_keywords"
 
 export async function GET(request: Request) {
   try {
@@ -11,15 +11,13 @@ export async function GET(request: Request) {
     if (!spaceId) return Response.json({ error: "spaceId required" }, { status: 400 })
     await requireSpaceAccess(userId, spaceId)
 
-    const rows = await query(`SELECT * FROM "${TABLE}" WHERE space_id = $1`, [spaceId])
+    const rows = await query(`SELECT * FROM public.category_keywords WHERE space_id = $1`, [spaceId])
     const mapped = rows.map((r) => coerceNumeric(toCamel(TABLE, r)))
     return successResponse(mapped)
   } catch (err) { return errorResponse(err) }
 }
 
 export async function POST(request: Request) {
-  const pool = getPool()
-  const client = await pool.connect()
   try {
     const userId = await requireAuth(request)
     let body: Record<string, unknown>
@@ -32,37 +30,14 @@ export async function POST(request: Request) {
     const recordId = body.id as string
     if (!recordId) return Response.json({ error: "data.id required" }, { status: 400 })
 
-    const txType = body.type as string
-    const txAmount = Number(body.amount) || 0
-    const accountId = body.accountId as string | undefined
-
-    await client.query("BEGIN")
-
     const snake = toSnake(TABLE, body)
     const cols = Object.keys(snake)
     const vals = Object.values(snake)
     const ph = vals.map((_, i) => `$${i + 1}`)
     const updates = cols.map((c) => `${c} = EXCLUDED.${c}`).join(", ")
 
-    await client.query(`INSERT INTO "${TABLE}" (${cols.join(", ")}) VALUES (${ph.join(", ")}) ON CONFLICT (id) DO UPDATE SET ${updates}`, vals)
-
-    if (accountId && txAmount > 0) {
-      const sign = txType === "expense" || txType === "transfer" ? -1 : txType === "income" ? 1 : 0
-      if (sign !== 0) {
-        await client.query(
-          `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
-          [txAmount, sign, accountId]
-        )
-      }
-    }
-
-    await client.query("COMMIT")
-    sseManager.broadcast("sync", { tables: ["transactions", "accounts"] })
+    await query(`INSERT INTO public.category_keywords (${cols.join(", ")}) VALUES (${ph.join(", ")}) ON CONFLICT (id) DO UPDATE SET ${updates}`, vals)
+    sseManager.broadcast("sync", { tables: ["category_keywords"] })
     return Response.json({ ok: true, id: recordId })
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {})
-    return errorResponse(err)
-  } finally {
-    client.release()
-  }
+  } catch (err) { return errorResponse(err) }
 }

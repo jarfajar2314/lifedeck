@@ -32,7 +32,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const oldAmount = Number(oldRow.amount) || 0
     const oldType = oldRow.type as string
     if (oldAccountId && oldAmount > 0) {
-      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : 0
+      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : oldType === "transfer" ? 1 : 0
       if (oldSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
@@ -46,7 +46,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newAmount = Number(body.amount) || 0
     const newType = body.type as string
     if (newAccountId && newAmount > 0) {
-      const newSign = newType === "expense" ? -1 : newType === "income" ? 1 : 0
+      const newSign = newType === "expense" || newType === "transfer" ? -1 : newType === "income" ? 1 : 0
       if (newSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
@@ -56,7 +56,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     await client.query("COMMIT")
-    sseManager.broadcast("sync", { tables: ["transactions"] })
+    sseManager.broadcast("sync", { tables: ["transactions", "accounts"] })
     return Response.json({ ok: true })
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {})
@@ -88,7 +88,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const oldAmount = Number(oldRow.amount) || 0
     const oldType = oldRow.type as string
     if (oldAccountId && oldAmount > 0) {
-      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : 0
+      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : oldType === "transfer" ? 1 : 0
       if (oldSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
@@ -98,7 +98,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     await client.query("COMMIT")
-    sseManager.broadcast("sync", { tables: ["transactions"] })
+    sseManager.broadcast("sync", { tables: ["transactions", "accounts"] })
     return Response.json({ ok: true })
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {})

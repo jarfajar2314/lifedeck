@@ -1,27 +1,79 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useTransactions } from "@/hooks/use-db"
 import { cn } from "@/lib/utils"
 import { TransactionDetail } from "@/components/transaction-detail"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WalletMinimal } from "lucide-react"
-import { type Transaction, type Account } from "@/lib/db"
+import { type Transaction, type Account, type Category } from "@/lib/db"
+
+type MergedTransfer = {
+  isMerged: true
+  id: string
+  sourceId: string
+  targetId: string
+  amount: number
+  fromName: string
+  toName: string
+  note?: string
+  loggedAt: Date
+}
+
+type RowItem = Transaction | MergedTransfer
 
 type TransactionListProps = {
   spaceId: string
   limit?: number
   accounts: Account[]
+  categories: Category[]
 }
 
-export function TransactionList({ spaceId, limit, accounts }: TransactionListProps) {
+export function TransactionList({ spaceId, limit, accounts, categories }: TransactionListProps) {
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
 
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
+  const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
-  const displayed = limit ? items.slice(0, limit) : items
+  const { displayed } = useMemo(() => {
+    const paired = new Set<string>()
+    const merged: RowItem[] = []
+
+    for (const tx of items) {
+      if (paired.has(tx.id)) continue
+      if (tx.type === "transfer") {
+        const match = items.find(
+          (t) => t.id !== tx.id
+            && !paired.has(t.id)
+            && t.type === "income"
+            && t.amount === tx.amount
+            && Math.abs(new Date(t.loggedAt).getTime() - new Date(tx.loggedAt).getTime()) < 2000
+        )
+        if (match) {
+          paired.add(tx.id)
+          paired.add(match.id)
+          merged.push({
+            isMerged: true,
+            id: tx.id,
+            sourceId: tx.accountId ?? "",
+            targetId: match.accountId ?? "",
+            amount: tx.amount,
+            fromName: accountMap.get(tx.accountId ?? "")?.name ?? "?",
+            toName: accountMap.get(match.accountId ?? "")?.name ?? "?",
+            note: tx.note?.replace(/^Transfer to /, "") || "Transfer",
+            loggedAt: tx.loggedAt,
+          })
+          continue
+        }
+      }
+      merged.push(tx)
+    }
+
+    const sliced = limit ? merged.slice(0, limit) : merged
+    return { displayed: sliced, hasMore: limit ? merged.length > limit : false }
+  }, [items, accountMap, limit])
 
   if (loading) {
     return (
@@ -62,54 +114,88 @@ export function TransactionList({ spaceId, limit, accounts }: TransactionListPro
             -Rp{total.toLocaleString("id-ID")}
           </span>
         </div>
+        {displayed.length > 0 && (
         <ul className="flex flex-col gap-0.5" aria-label="Transaction list">
           <AnimatePresence initial={false}>
-            {displayed.map((tx, i) => (
+            {displayed.map((row, i) => (
               <motion.li
-                key={tx.id}
+                key={"isMerged" in row ? row.id : (row as Transaction).id}
                 layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
                 transition={{ duration: 0.18, delay: i * 0.02 }}
               >
+              {row && "isMerged" in row ? (
+                  <div className="flex w-full items-center justify-between rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground" aria-hidden="true">
+                        ↔
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{row.note || "Transfer"}</p>
+                        <div className="flex items-center gap-1.5">
+                          <time className="text-[10px] text-muted-foreground" dateTime={new Date(row.loggedAt).toISOString()}>
+                            {new Date(row.loggedAt).toLocaleDateString()}
+                          </time>
+                          <span className="text-[10px] text-muted-foreground/60">@{row.fromName} → @{row.toName}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      Rp{row.amount.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                ) : (
                 <button
-                  onClick={() => setSelected(tx)}
+                  onClick={() => setSelected(row as Transaction)}
                   className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                      tx.type === "expense" ? "bg-destructive/10 text-destructive"
-                        : tx.type === "income" ? "bg-success/10 text-success"
-                        : "bg-muted text-muted-foreground"
-                    )} aria-hidden="true">
-                      {tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"}
-                    </div>
+                    <div className="flex items-center gap-3">
+                      {(row as Transaction).categoryId && categoryMap.has((row as Transaction).categoryId!) && (
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: categoryMap.get((row as Transaction).categoryId!)!.color || "#6B7280" }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                        (row as Transaction).type === "expense" ? "bg-destructive/10 text-destructive"
+                          : (row as Transaction).type === "income" ? "bg-success/10 text-success"
+                          : "bg-muted text-muted-foreground"
+                      )} aria-hidden="true">
+                        {(row as Transaction).type === "expense" ? "↓" : (row as Transaction).type === "income" ? "↑" : "↔"}
+                      </div>
                     <div className="text-left">
-                      <p className="text-sm font-medium">{tx.note || "Untitled"}</p>
+                      <p className="text-sm font-medium">{(row as Transaction).note || "Untitled"}</p>
                       <div className="flex items-center gap-1.5">
-                        <time className="text-[10px] text-muted-foreground" dateTime={new Date(tx.loggedAt).toISOString()}>
-                          {new Date(tx.loggedAt).toLocaleDateString()}
+                        <time className="text-[10px] text-muted-foreground" dateTime={new Date((row as Transaction).loggedAt).toISOString()}>
+                          {new Date((row as Transaction).loggedAt).toLocaleDateString()}
                         </time>
-                        {tx.accountId && accountMap.has(tx.accountId) && (
-                          <span className="text-[10px] text-muted-foreground/60">@{accountMap.get(tx.accountId)!.name}</span>
+                        {(row as Transaction).accountId && accountMap.has((row as Transaction).accountId!) && (
+                          <span className="text-[10px] text-muted-foreground/60">@{accountMap.get((row as Transaction).accountId!)!.name}</span>
+                        )}
+                        {(row as Transaction).categoryId && categoryMap.has((row as Transaction).categoryId!) && (
+                          <span className="text-[10px] text-muted-foreground/40">{categoryMap.get((row as Transaction).categoryId!)!.name}</span>
                         )}
                       </div>
                     </div>
                   </div>
                   <span className={cn(
                     "text-sm font-semibold tabular-nums",
-                    tx.type === "expense" && "text-destructive",
-                    tx.type === "income" && "text-success"
+                    (row as Transaction).type === "expense" && "text-destructive",
+                    (row as Transaction).type === "income" && "text-success"
                   )}>
-                    {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+                    {(row as Transaction).type === "expense" ? "-" : "+"}Rp{(row as Transaction).amount.toLocaleString("id-ID")}
                   </span>
                 </button>
+                )}
               </motion.li>
             ))}
           </AnimatePresence>
         </ul>
+      )}
       </div>
 
       <TransactionDetail

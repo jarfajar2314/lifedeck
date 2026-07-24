@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 7.0  
+**Document Version:** 9.0  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -401,9 +401,9 @@ CREATE POLICY "Users can view members of their spaces" ON public.space_members
 - ✅ **User Menu & Settings Drawer** — Bottom-sheet triggered by avatar/name in header; profile info, theme/accent toggles, currency selector, default account per space, space invite settings, sign out.
 - ✅ **True Realtime via SSE + PostgreSQL LISTEN/NOTIFY** — Sync API emits `NOTIFY` after writes; shared SSE manager pushes events to connected browser clients; polling remains as 10s fallback.
 
-### 🔄 Phase 6: Account Balance Tracking, Inline Suggestions & Shared Space Fix
+### ✅ Phase 6: Account Balance Tracking, Inline Suggestions & Shared Space Fix
 
-**Status:** In Progress
+**Status:** ✅ Completed
 
 **Overview:** Three interconnected features that complete the finance loop and fix a critical collaboration bug.
 
@@ -524,9 +524,9 @@ const { id, name } = await res.json();
 
 ---
 
-### 📋 Phase 7: PWA Production Readiness
+### ✅ Phase 7: PWA Production Readiness
 
-**Status:** 🔜 Upcoming
+**Status:** ✅ Completed
 
 **Goal:** Complete the PWA setup so LifeDeck is installable on mobile and desktop with proper icons, splash screens, offline fallback, and a production-grade manifest.
 
@@ -556,12 +556,283 @@ The existing Serwist service worker (`sw.ts`) already caches static assets via `
 
 ---
 
-### 📋 Phase 8: Offline-First & Deployment Preparation
+### ✅ Phase 8: Core Fixes & Feature Completion
 
-**Status:** ❌ Not Started (moved down; Phase 6 takes priority)
+**Status:** ✅ Completed
+
+**Goal:** Fix critical bugs in balance refresh, default account routing, and expense filtering, while adding missing features (categories, notes field) and UI polish.
+
+---
+
+#### 8A. Balance Refresh After Transaction
+
+**Bug:** Account balances shown in the UI (dashboard accounts card, expense keypad, user menu) don't update after creating a transaction. The `balance` column on the accounts table is updated server-side within the same DB transaction, but the client's accounts cache isn't invalidated after a transaction write.
+
+**Fix:**
+- After a successful `POST /api/transactions` (expense, income, or transfer), invalidate the accounts cache so the next read fetches fresh data.
+- After `PUT /api/transactions/[id]` (edit), re-fetch the affected account's balance.
+- After `DELETE /api/transactions/[id]` (delete), re-fetch the affected account's balance.
+
+---
+
+#### 8B. Exclude Transfers from Money Total
+
+**Bug:** The Money section header shows `totalExpenses` which sums all transaction amounts with `type === "expense"`. Transfers between accounts (transfer from GoPay to BCA) are not expenses and should not be counted.
+
+**Fix:**
+- `components/dashboard.tsx` — `totalExpenses` calculation should filter only `type === "expense"`, which it already does. Verify that transfer transactions are never counted.
+- Verify `components/transaction-list.tsx` — the total/header section excludes transfers.
+
+---
+
+#### 8C. Default Account Not Applied in Command Bar
+
+**Bug:** When a user types `25k lunch` without an `@account` tag, the expense should route to the user's default account (`space_members.default_account_id`). Currently, the fallback to default account is either missing or broken.
+
+**Fix:**
+- In `components/dashboard.tsx` — `handleExpense()` already resolves account names. If no account name is found from the parsed command, look up the current member's `defaultAccountId` and use that.
+- In the API route, also fall back to the user's default account if no `account_id` is provided on the transaction.
+- Ensure the fallback is properly fetched from `useSpaceMembers` or similar cache.
+
+---
+
+#### 8D. Category Support for Transactions
+
+**Feature:** Allow users to assign a category (Food, Transport, Shopping, Bills, etc.) to each transaction for better organization and filtering.
+
+**Implementation:**
+- Seed a default category set per space on space creation (Food, Transport, Shopping, Bills, Entertainment, Health, Education, Other).
+- Add a category selector in `components/expense-keypad.tsx` — row of filter chips between the amount and account selector.
+- Categories are already stored in `public.categories` table with `id`, `space_id`, `name`, `icon`, `color`.
+- Transaction API already has a `category_id` field.
+
+**Client Components:**
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Add category chip row (scrollable horizontal chips) |
+| `components/transaction-list.tsx` | Show category badge/color dot on each row |
+| `hooks/use-db.ts` | Expose `categories` via `useCategories` hook |
+| `lib/command-parser.ts` | Support `25k lunch #food` — hash tag syntax for category |
+| `components/account-detail.tsx` | Show category in transaction list entries |
+
+---
+
+#### 8E. Notes Input on Expense Keypad
+
+**Feature:** When opening the + button on Money (which opens ExpenseKeypad), allow the user to add a free-text note alongside the amount and account.
+
+**Fix:**
+- Add a text input field in `components/expense-keypad.tsx` between the numeric display and the account selector.
+- Label: "Note (optional)"
+- The note is sent as `{ note: string }` in the transaction payload.
+
+---
+
+#### 8F. UI Enhancements
+
+**Polish items:**
+
+| Item | Detail |
+|---|---|
+| **Balance loading state** | Show skeleton shimmer while account balances are loading |
+| **Transaction list empty state** | Better illustration / message when no transactions exist |
+| **Swipe affordance** | Subtle visual hint that task rows and transaction rows are swipeable (partial gradient fade at edges) |
+| **Keyboard dismiss** | Tapping outside the command bar / keypad should dismiss it |
+| **Drawer snap points** | ExpenseKeypad drawer should snap to a comfortable mid-point height instead of full screen on larger devices |
+| **Success animation** | Brief checkmark overlay or pulse when a transaction/task is saved |
+
+---
+
+### ✅ Phase 9: Auto-Categorization, Transfers UX, & Polish
+
+**Status:** ✅ Completed
+
+**Goal:** Add intelligent auto-categorization via keywords, improve transfer UX with merged display rows, fix remaining balance sign bugs, and add a dedicated transactions page.
+
+---
+
+#### 9A. Balance Refresh After Transaction (SSE Broadcast)
+
+**Fix:** After `POST /api/transactions`, `PUT /api/transactions/[id]`, and `DELETE /api/transactions/[id]`, the `accounts` table is included in the SSE broadcast so the client invalidates its accounts cache.
+
+- `app/api/transactions/route.ts` — broadcast `{ tables: ["transactions", "accounts"] }` after insert
+- `app/api/transactions/[id]/route.ts` — broadcast both tables after update/delete
+
+---
+
+#### 9B. Transfer Type Consistency
+
+**Fix:** Outgoing transfer rows now use `type: "transfer"` instead of `type: "expense"`. The PUT/DELETE handlers reverse the correct sign depending on type (transfer → same as expense for source account).
+
+- `lib/data-store.ts` — outgoing leg of transfer uses `"transfer"` type
+- `app/api/transactions/[id]/route.ts` — PUT uses `sign = type === "income" ? 1 : -1` (covers both expense and transfer)
+
+---
+
+#### 9C. Default Account Fallback
+
+**Fix:** Command bar expense/income handlers reliably fall back to the member's `default_account_id` when no `@` tag is present.
+
+- `components/dashboard.tsx` — `handleExpense` falls back to `currentMember.defaultAccountId`; `handleIncome` also falls back
+- `hooks/use-spaces.ts` — ensure `currentMember` includes `defaultAccountId`
+
+---
+
+#### 9D. Categories Support
+
+**Feature:** Transaction categorization with seeded defaults, keypad selector, and `#category` command syntax.
+
+**DB Changes:**
+- `supabase/migrations/006_seed_categories.sql` — seeds 8 default categories per space on creation: Food, Transport, Shopping, Bills, Entertainment, Health, Education, Other
+
+**Client Components:**
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Scrollable horizontal category chip row |
+| `components/transaction-list.tsx` | Category label + color dot on each row |
+| `lib/command-parser.ts` | `#food` syntax → `category` output |
+| `components/dashboard.tsx` | `handleExpense` passes parsed category_id |
+| `hooks/use-db.ts` | `useCategories` hook + store support |
+
+---
+
+#### 9E. Notes Input on Expense Keypad
+
+**Feature:** Text input field in ExpenseKeypad for transaction notes.
+
+| Component | Change |
+|---|---|
+| `components/expense-keypad.tsx` | Text input labeled "Note (optional)" between display and account selector |
+| `lib/command-parser.ts` | Parser preserves note text after removing amount/category/account |
+| `components/dashboard.tsx` | `handleExpense` passes note to payload |
+
+---
+
+#### 9F. UI Polish
+
+| Item | Detail |
+|---|---|
+| **Drawer snapPoints removed** | ExpenseKeypad drawer uses `snapPoints={undefined}` — natural height on all devices |
+| **Toast position** | Changed from `bottom-center` to `top-center` for better visibility |
+| **ExpenseKeypad dual type** | Supports both expense and income modes; toggles sign display |
+
+---
+
+#### 9G. Category Keywords & Auto-Categorization
+
+**Feature:** Keyword-based auto-categorization so recognized terms in notes auto-select the right category.
+
+**DB Changes:**
+- `supabase/migrations/007_category_keywords.sql` — `category_keywords` table (`id`, `space_id`, `category_id`, `keyword`, `created_at`)
+
+**Implementation:**
+- `lib/categories.ts` — `matchCategory(spaceId, text, categories, keywords)` scans text against keyword patterns, returns best-matching `category_id` or null
+- `lib/data-store.ts` — calls `matchCategory` on transaction submit as fallback
+- `components/expense-keypad.tsx` — calls `matchCategory` live on text input to auto-highlight matching category
+- `app/api/category-keywords/route.ts` — GET/POST endpoint for keyword management
+
+---
+
+#### 9H. Transfer Row Merging
+
+**Feature:** In the transaction list, transfer pairs (source + target rows) are visually merged into a single display row showing both sides.
+
+- `components/transaction-list.tsx` — heuristic pairing: same amount + logged_at timestamp within 2 seconds = same transfer; shows as "GoPay → BCA" format with the full amount once, plus smaller text showing "outgoing from GoPay" / "incoming to BCA"
+
+**Multi-Account Transfer:**
+- The two-row model supports cross-account transfers natively — the source row debits one account, the target row credits the other
+
+---
+
+#### 9I. Recalculate Balances Endpoint
+
+**Feature:** Server-side endpoint that replays all transactions to rebuild account balances.
+
+- `app/api/accounts/recalculate/route.ts` — `POST /api/accounts/recalculate` resets all account balances to 0, then replays every transaction ordered by `logged_at`, applying the correct sign per type
+- Used to fix existing data after schema changes or manual edits
+
+---
+
+#### 9J. Dedicated Transactions Page
+
+**Feature:** Full-page transaction list with "See All" link from dashboard.
+
+- `app/transactions/page.tsx` — full transaction list with account filter support
+- Layout matches dashboard style; same `TransactionList` component
+
+---
+
+#### 9K. Balance Sign Fix in Dashboard
+
+**Fix:** The dashboard balance display used `account.balance` directly but did not handle the sign correctly for consolidated display.
+
+- `components/dashboard.tsx` — balance formatting uses `Math.abs()` for display, preserving the raw value for calculations
+- `components/account-detail.tsx` — consistent sign handling
+
+---
+
+### Architecture Rule: Per-Entity Endpoints
+
+**Rule:** All entities MUST have their own API route files. No monolithic `/api/sync`-style endpoints. Each new entity follows:
+
+```
+app/api/<entity>/route.ts      → GET (list by ?spaceId), POST (upsert)
+app/api/<entity>/[id]/route.ts → PUT (partial update), DELETE
+```
+
+The legacy `/api/data` (single endpoint for all tables) is deprecated and must not be extended.
+
+---
+
+### 📋 Phase 10: Offline-First & Deployment Preparation
+
+**Status:** ❌ Not Started
 
 - Dexie.js (IndexedDB) as primary local store with instant reads/writes (< 50ms) before remote sync
 - Sync queue: operations enqueue locally, flush after 2s debounce (or immediately on sign-out)
 - Background sync: service worker handles pending mutations when connectivity resumes
 - Conflict resolution: last-write-wins with server timestamp authority
 - Deployment to Vercel or custom domain with environment variable provisioning
+
+---
+
+## 10. Session Log
+
+### Session 2026-07-24 — Phase 9 Implementation
+
+**Focus:** Auto-categorization, transfers UX, balance fixes, categories, notes input.
+
+**Files Created:**
+```
+app/api/accounts/recalculate/route.ts   — POST recalculate balances
+app/api/category-keywords/route.ts      — GET/POST keyword CRUD
+app/transactions/page.tsx               — Dedicated transactions page
+lib/categories.ts                        — matchCategory() helper
+supabase/migrations/006_seed_categories.sql
+supabase/migrations/007_category_keywords.sql
+Architecture.md                          — New project architecture doc
+```
+
+**Files Modified:**
+- `PRD.md` — bumped to v9.0 with Phase 9, per-entity rule, session log
+- `app/api/transactions/route.ts` — SSE broadcast includes accounts; updated stale comment
+- `app/api/transactions/[id]/route.ts` — sign for transfer type; SSE broadcast accounts
+- `app/layout.tsx` — toast position top-center; removed snapPoints
+- `components/command-bar.tsx` — parse and pass category
+- `components/dashboard.tsx` — handleExpense defaults, balance sign
+- `components/expense-keypad.tsx` — categories, notes, dual type, auto-categorize
+- `components/transaction-list.tsx` — merged transfer rows, category display
+- `components/transaction-detail.tsx` — category field
+- `components/account-detail.tsx` — balance sign
+- `hooks/use-db.ts` — categories support
+- `hooks/use-spaces.ts` — defaultAccountId access
+- `lib/api-utils.ts` — transfer type in snake_case mapping
+- `lib/command-parser.ts` — #category syntax, notes preservation
+- `lib/data-store.ts` — transfer type, matchCategory fallback, persistTransactions
+- `lib/db.ts` — spaces sync
+
+**Key Decisions:**
+1. Transfer pairs stored as two rows (source=transfer, target=income); merged in display via heuristic (same amount + 2s window)
+2. Balance stored as DB column, recalculated by replaying all transactions ordered by `logged_at`
+3. Auto-categorize uses `category_keywords` table; `matchCategory()` matches on longest keyword, called both live (keypad input) and at submit (fallback)
+4. Per-entity API routes are the standard; `/api/data` monolithic endpoint is deprecated
