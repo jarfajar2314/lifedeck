@@ -2,6 +2,7 @@
 
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import { Check, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { haptics } from "@/lib/haptics"
@@ -16,11 +17,6 @@ type TaskRowProps = {
   onOpen: () => void
 }
 
-const priorityColors: Record<Task["priority"], string> = {
-  high: "bg-red-500/15 text-red-500",
-  medium: "bg-yellow-500/15 text-yellow-500",
-  low: "bg-green-500/15 text-green-500",
-}
 
 export function TaskRow({ task, onToggle, onDelete, onOpen }: TaskRowProps) {
   const x = useMotionValue(0)
@@ -42,7 +38,7 @@ export function TaskRow({ task, onToggle, onDelete, onOpen }: TaskRowProps) {
       <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-4" aria-hidden="true">
         <motion.span
           style={{ opacity: completeOpacity }}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-2 py-1 text-xs font-medium text-white"
+          className="flex items-center gap-1.5 rounded-lg bg-success px-2 py-1 text-xs font-medium text-white"
         >
           <Check className="h-3.5 w-3.5" /> {task.isCompleted ? "Undo" : "Complete"}
         </motion.span>
@@ -78,15 +74,11 @@ export function TaskRow({ task, onToggle, onDelete, onOpen }: TaskRowProps) {
         >
           {task.title}
         </button>
-        <span
-          className={cn(
-            "rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-            priorityColors[task.priority]
-          )}
+        <Badge className="rounded-4xl px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider border-0 bg-secondary text-secondary-foreground"
           aria-label={`Priority: ${task.priority}`}
         >
           {task.priority}
-        </span>
+        </Badge>
         <button
           onClick={onDelete}
           className="text-muted-foreground/50 hover:text-destructive"

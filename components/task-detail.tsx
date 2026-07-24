@@ -49,11 +49,6 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
     onOpenChange(false)
   }
 
-  const priorityColors: Record<string, string> = {
-    high: "bg-red-500/15 text-red-500",
-    medium: "bg-yellow-500/15 text-yellow-500",
-    low: "bg-green-500/15 text-green-500",
-  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -81,7 +76,7 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
                   onClick={() => setPriority(p)}
                   className={cn(
                     "rounded-lg px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors",
-                    priority === p ? priorityColors[p] : "bg-secondary text-muted-foreground/60"
+                    priority === p ? "bg-accent-color text-white" : "bg-secondary text-muted-foreground/60"
                   )}
                 >
                   {p}

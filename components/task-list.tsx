@@ -93,9 +93,7 @@ export function TaskList({ spaceId, limit }: TaskListProps) {
               className={cn(
                 "rounded-full px-3 py-0.5 text-[11px] font-medium uppercase tracking-wider transition-colors",
                 priority === p
-                  ? p === "high" ? "bg-destructive text-destructive-foreground"
-                    : p === "medium" ? "bg-accent-color/20 text-accent-color"
-                    : "bg-muted text-muted-foreground"
+                  ? "bg-accent-color text-white"
                   : "bg-secondary text-muted-foreground/60"
               )}
             >

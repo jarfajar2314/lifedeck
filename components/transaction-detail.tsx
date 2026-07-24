@@ -63,7 +63,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   }
 
   const indicatorClass = tx.type === "expense" ? "bg-destructive/10 text-destructive"
-    : tx.type === "income" ? "bg-emerald-500/10 text-emerald-500"
+    : tx.type === "income" ? "bg-success/10 text-success"
     : "bg-muted text-muted-foreground"
   const indicatorIcon = tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
 
@@ -138,7 +138,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               <div className={cn("flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold", indicatorClass)} aria-hidden="true">
                 {indicatorIcon}
               </div>
-              <span className={cn("text-2xl font-bold tabular-nums", tx.type === "expense" && "text-destructive", tx.type === "income" && "text-emerald-500")}>
+              <span className={cn("text-2xl font-bold tabular-nums", tx.type === "expense" && "text-destructive", tx.type === "income" && "text-success")}>
                 {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
               </span>
             </div>

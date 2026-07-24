@@ -7,16 +7,19 @@ import { cn } from "@/lib/utils"
 import { TransactionDetail } from "@/components/transaction-detail"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WalletMinimal } from "lucide-react"
-import { type Transaction } from "@/lib/db"
+import { type Transaction, type Account } from "@/lib/db"
 
 type TransactionListProps = {
   spaceId: string
   limit?: number
+  accounts: Account[]
 }
 
-export function TransactionList({ spaceId, limit }: TransactionListProps) {
+export function TransactionList({ spaceId, limit, accounts }: TransactionListProps) {
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
+
+  const accountMap = new Map(accounts.map((a) => [a.id, a]))
 
   const displayed = limit ? items.slice(0, limit) : items
 
@@ -78,22 +81,27 @@ export function TransactionList({ spaceId, limit }: TransactionListProps) {
                     <div className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
                       tx.type === "expense" ? "bg-destructive/10 text-destructive"
-                        : tx.type === "income" ? "bg-emerald-500/10 text-emerald-500"
+                        : tx.type === "income" ? "bg-success/10 text-success"
                         : "bg-muted text-muted-foreground"
                     )} aria-hidden="true">
                       {tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"}
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-medium">{tx.note || "Untitled"}</p>
-                      <time className="text-[10px] text-muted-foreground" dateTime={new Date(tx.loggedAt).toISOString()}>
-                        {new Date(tx.loggedAt).toLocaleDateString()}
-                      </time>
+                      <div className="flex items-center gap-1.5">
+                        <time className="text-[10px] text-muted-foreground" dateTime={new Date(tx.loggedAt).toISOString()}>
+                          {new Date(tx.loggedAt).toLocaleDateString()}
+                        </time>
+                        {tx.accountId && accountMap.has(tx.accountId) && (
+                          <span className="text-[10px] text-muted-foreground/60">@{accountMap.get(tx.accountId)!.name}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <span className={cn(
                     "text-sm font-semibold tabular-nums",
                     tx.type === "expense" && "text-destructive",
-                    tx.type === "income" && "text-emerald-500"
+                    tx.type === "income" && "text-success"
                   )}>
                     {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
                   </span>
