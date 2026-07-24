@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { useProfile } from "@/hooks/use-db"
@@ -96,7 +95,7 @@ export default function UserSettingsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <Image src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" priority />
+            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
           </div>
         </div>
       </header>

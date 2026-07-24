@@ -8,6 +8,7 @@ import { TransactionDetail } from "@/components/transaction-detail"
 import { Skeleton } from "@/components/ui/skeleton"
 import { WalletMinimal } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { type Transaction, type Account, type Category } from "@/lib/db"
 
 type MergedTransfer = {
@@ -241,40 +242,31 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
         categories={categories}
       />
 
-      {selectedTransfer && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          onClick={() => setSelectedTransfer(null)}
-        >
-          <div className="fixed inset-0 bg-black/50" />
-          <div className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <Sheet open={selectedTransfer !== null} onOpenChange={(v) => { if (!v) setSelectedTransfer(null) }}>
+        <SheetContent side="bottom" aria-label="Transfer detail">
+          <SheetHeader>
+            <SheetTitle>Transfer</SheetTitle>
+            <SheetDescription>Transfer between accounts.</SheetDescription>
+          </SheetHeader>
+          {selectedTransfer && (
             <div className="flex flex-col items-center gap-3 py-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">↔</div>
               <span className="text-2xl font-bold tabular-nums">Rp{selectedTransfer.amount.toLocaleString("id-ID")}</span>
+              <div className="text-center text-sm font-medium">{selectedTransfer.note}</div>
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span>@{selectedTransfer.fromName}</span>
+                <span>→</span>
+                <span>@{selectedTransfer.toName}</span>
+              </div>
+              <div className="text-center text-xs text-muted-foreground">
+                <time dateTime={new Date(selectedTransfer.loggedAt).toISOString()}>
+                  {new Date(selectedTransfer.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </time>
+              </div>
             </div>
-            <div className="text-center text-sm font-medium">{selectedTransfer.note}</div>
-            <div className="flex items-center justify-center gap-2 mt-2 text-sm text-muted-foreground">
-              <span>@{selectedTransfer.fromName}</span>
-              <span>→</span>
-              <span>@{selectedTransfer.toName}</span>
-            </div>
-            <div className="text-center text-xs text-muted-foreground mt-1">
-              <time dateTime={new Date(selectedTransfer.loggedAt).toISOString()}>
-                {new Date(selectedTransfer.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </time>
-            </div>
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setSelectedTransfer(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

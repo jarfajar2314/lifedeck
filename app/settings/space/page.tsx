@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { useAccounts, useSpaceMembers, updateSpaceMember } from "@/hooks/use-db"
@@ -130,7 +129,7 @@ export default function SpaceSettingsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <Image src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" priority />
+            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}

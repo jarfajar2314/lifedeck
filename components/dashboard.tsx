@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useState, useMemo } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { SpaceSelector } from "@/components/space-selector"
 import { TransactionList } from "@/components/transaction-list"
@@ -186,7 +185,7 @@ export function Dashboard() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Image src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" priority />
+            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
