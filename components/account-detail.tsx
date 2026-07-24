@@ -60,7 +60,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
     const amount = parseFloat(incomeAmount.replace(/,/g, ""))
     if (isNaN(amount) || amount <= 0) return
     await addTransaction({ spaceId, amount, type: "income", accountId: acc.id, note: incomeNote || undefined, loggedAt: new Date() })
-    store.invalidate(["accounts"])
+    store.patchCache("accounts", spaceId, acc.id, { balance: acc.balance + amount })
     setIncomeAmount("")
     setIncomeNote("")
     setIncomeOpen(false)
@@ -75,7 +75,8 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
     const now = new Date()
     await addTransaction({ spaceId, amount, type: "expense", accountId: acc.id, note: transferNote || `Transfer to ${target.name}`, loggedAt: now })
     await addTransaction({ spaceId, amount, type: "income", accountId: target.id, note: transferNote || `Transfer from ${acc.name}`, loggedAt: now })
-    store.invalidate(["accounts"])
+    store.patchCache("accounts", spaceId, acc.id, { balance: acc.balance - amount })
+    store.patchCache("accounts", spaceId, target.id, { balance: target.balance + amount })
     setTransferAmount("")
     setTransferTargetId("")
     setTransferNote("")

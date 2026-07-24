@@ -208,6 +208,15 @@ export async function mutateOptimistic<T extends Row>(
   }
 }
 
+// Directly update an item in the local cache snapshot without a server round-trip.
+// Useful when the server has already been updated (e.g. account balance via
+// transaction POST) and we just need the local cache to reflect the change.
+export function patchCache(table: string, spaceId: string | undefined, id: string, patch: Record<string, unknown>): void {
+  const e = entryFor<Record<string, unknown>>(table, spaceId)
+  const updated = e.snapshot.items.map((item) => item.id === id ? { ...item, ...patch } : item)
+  setSnapshot(e, { ...e.snapshot, items: updated })
+}
+
 // Silently refetches every cached entry for the given tables (any space), used by
 // realtime sync so unaffected components don't flash a loading state.
 export function invalidate(tables: string[]): void {
