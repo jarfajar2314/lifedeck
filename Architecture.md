@@ -87,6 +87,18 @@ LifeDeck is a Next.js 16 App Router PWA with per-entity API endpoints communicat
 
 ---
 
+## Display Name Resolution
+
+User display names are resolved via `COALESCE(p.display_name, u.name) AS display_name` in API queries:
+
+- **`profiles.display_name`** — set on signup from Better Auth `user.name`; editable via user settings
+- **`user.name`** — Better Auth's user table, used as fallback for existing users without a profile display_name
+- Applied to space members list and transaction creator (via `creator_name` alias)
+
+See: `app/api/spaces/members/route.ts`, `app/api/transactions/route.ts`
+
+---
+
 ## API Endpoints
 
 All endpoints are per-entity (no monolithic `/api/sync`). Each supports:
@@ -137,6 +149,9 @@ Component → useTransactions/tasks/etc
   → store.persist()              ← POST/PUT/DELETE to entity API
   → API route handler            ← inserts/updates DB + broadcasts SSE
   → SSE event received by all clients → store.invalidate() → re-fetch
+
+For account balance updates (where server already updated via transaction POST):
+  → store.patchCache()           ← updates local snapshot directly, no server round-trip
 ```
 
 ### Transaction Balance Side Effect
@@ -170,3 +185,4 @@ Server write → sseManager.broadcast("sync", { tables: [...] })
 - **SSE over WebSockets:** Supabase Realtime WebSocket runs alongside SSE for true realtime. SSE is the primary push mechanism with pg LISTEN/NOTIFY; Supabase Realtime is the backup.
 - **Transfer pairs as two rows:** A transfer creates two transaction rows (type="transfer" for source, type="income" for target). The client merges them for display via heuristic pairing (same amount + same timestamp within 2s).
 - **Auto-categorize via keywords:** A `category_keywords` table maps keywords to category IDs. `matchCategory()` scans the note text at input time and at submit time for live and fallback categorization.
+- **patchCache for local-only mutations:** When the server has already been updated (e.g., account balance via transaction POST), `patchCache()` updates the local snapshot directly without a server round-trip, avoiding race conditions with concurrent optimistic writes.

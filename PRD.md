@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 10.0  
+**Document Version:** 10.1  
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -786,7 +786,7 @@ The legacy `/api/data` (single endpoint for all tables) is deprecated and must n
 
 ### ✅ Phase 10: Settings, Accounts & Category Management
 
-**Status:** 🚧 In Progress
+**Status:** ✅ Completed
 
 ---
 
@@ -1025,3 +1025,56 @@ Architecture.md                          — New project architecture doc
 3. Category API needs `[id]/route.ts` PUT/DELETE endpoint (currently missing)
 4. Account delete offers cascade options via query param (`?cascade=delete|unlink`)
 5. `lifedeck.svg` will be a simple SVG using `currentColor` for theme adaptation
+
+---
+
+### Session 2026-07-24 — Phase 10 Implementation & Polish
+
+**Focus:** Build all settings pages, fix bugs found in review.
+
+**Files Created:**
+```
+app/settings/space/page.tsx              — Space settings (rename, accounts, default payment, members, delete)
+app/settings/space/accounts/page.tsx     — Account CRUD with cascade delete
+app/settings/space/category/page.tsx     — Category CRUD with keywords, colors, icons
+app/settings/user/page.tsx               — User settings (display name, password, logout)
+public/lifedeck.svg                       — SVG logo using currentColor
+```
+
+**Files Modified:**
+- `app/layout.tsx` — removed static themeColor from viewport, added maximumScale=1/userScalable=false
+- `app/(auth)/sign-in/page.tsx` — added LifeDeck branding
+- `app/(auth)/sign-up/page.tsx` — added LifeDeck branding
+- `app/settings/space/page.tsx` — member list display name resolution
+- `app/transactions/page.tsx` — account filter, month picker, SVG logo
+- `app/api/transactions/route.ts` — join profiles/user for creatorName
+- `app/api/transactions/[id]/route.ts` — strip creator_name from UPDATE
+- `app/api/spaces/members/route.ts` — join profiles/user for display_name; return all space members
+- `app/api/spaces/members/[id]/route.ts` — strip display_name from UPDATE
+- `app/api/categories/[id]/route.ts` — PUT/DELETE (unlinks transactions + keywords)
+- `app/api/category-keywords/[id]/route.ts` — DELETE single keyword
+- `app/api/accounts/[id]/route.ts` — DELETE cascade options (?cascade=delete|unlink)
+- `app/api/spaces/[id]/route.ts` — DELETE space (cascades 8 child tables)
+- `components/dashboard.tsx` — See All link, SVG logo, account skeleton, transfer detail drawer
+- `components/transaction-list.tsx` — merged transfer rows open detail sheet
+- `components/transaction-detail.tsx` — category select in edit, creator name resolution
+- `components/user-menu.tsx` — restructured: removed accounts/default payment/space code; settings shortcuts
+- `components/account-detail.tsx` — liveAccount derivation, patchCache for instant balance update
+- `hooks/use-db.ts` — useSpaceMembers(spaceId) for correct cache key
+- `lib/data-store.ts` — added patchCache() for local snapshot mutations
+- `lib/api-utils.ts` — COL_MAP additions for displayName, creatorName
+- `lib/db.ts` — displayName on SpaceMember, creatorName on Transaction
+- `lib/auth.ts` — save user.name as display_name on profile creation
+
+**Bugs Fixed During Review:**
+1. Space members not loading — useTable guarded on spaceId; useSpaceMembers passed undefined → now accepts spaceId param
+2. Non-owner members not visible — API was filtering by current user's userId only → changed subquery to return all members of joined spaces
+3. "Unknown" for other members — profiles.display_name was null; added COALESCE fallback to user.name from Better Auth user table
+4. Error updating default payment — display_name in COL_MAP contaminated UPDATE SQL → stripped in PUT handler
+5. Transaction detail showed raw userId — added creatorName via profiles/user join; display in UI
+6. Account balance not updating after add income/transfer — added patchCache() for instant local snapshot mutation without server round-trip
+
+**Key Decisions:**
+1. displayName/creatorName added to COL_MAP for reading but stripped from UPDATE bodies to avoid SQL errors on columns that don't exist on the base table
+2. patchCache() avoids race conditions between transaction POST (which updates balance server-side) and account PUT (which would overwrite)
+3. fetch() without cache-busting params used throughout; server always returns fresh data within same request
