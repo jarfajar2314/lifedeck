@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { WalletMinimal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { CategoryBadge } from "@/components/category-badge"
 import { type Transaction, type Account, type Category } from "@/lib/db"
 
 type MergedTransfer = {
@@ -33,10 +34,11 @@ type TransactionListProps = {
   accounts: Account[]
   categories: Category[]
   accountFilter?: string
+  categoryFilter?: string
   monthFilter?: string
 }
 
-export function TransactionList({ spaceId, limit, accounts, categories, accountFilter, monthFilter }: TransactionListProps) {
+export function TransactionList({ spaceId, limit, accounts, categories, accountFilter, categoryFilter, monthFilter }: TransactionListProps) {
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [selectedTransfer, setSelectedTransfer] = useState<MergedTransfer | null>(null)
@@ -49,6 +51,10 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
 
     if (accountFilter) {
       filtered = filtered.filter((t) => t.accountId === accountFilter)
+    }
+
+    if (categoryFilter) {
+      filtered = filtered.filter((t) => t.categoryId === categoryFilter)
     }
 
     if (monthFilter) {
@@ -189,11 +195,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                   >
                     <div className="flex items-center gap-3">
                       {tx.categoryId && categoryMap.has(tx.categoryId) && (
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: categoryMap.get(tx.categoryId)!.color || "#6B7280" }}
-                          aria-hidden="true"
-                        />
+                        <CategoryBadge category={categoryMap.get(tx.categoryId)!} size="sm" />
                       )}
                       <div className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
@@ -213,7 +215,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                             <span className="text-[10px] text-muted-foreground/60">@{accountMap.get(tx.accountId)!.name}</span>
                           )}
                           {tx.categoryId && categoryMap.has(tx.categoryId) && (
-                            <span className="text-[10px] text-muted-foreground/40">{categoryMap.get(tx.categoryId)!.name}</span>
+                            <CategoryBadge category={categoryMap.get(tx.categoryId)!} size="sm" />
                           )}
                         </div>
                       </div>

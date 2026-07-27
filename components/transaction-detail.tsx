@@ -8,6 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { toast } from "sonner"
 import { type Transaction, type Category } from "@/lib/db"
 import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from "lucide-react"
+import { CategoryBadge } from "@/components/category-badge"
 import { cn } from "@/lib/utils"
 
 type TransactionDetailProps = {
@@ -172,10 +173,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               <div className="text-center text-sm text-muted-foreground">{tx.note}</div>
             )}
             {tx.categoryId && categories?.find((c) => c.id === tx.categoryId) && (
-              <div className="flex justify-center items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categories.find((c) => c.id === tx.categoryId)!.color || "#6B7280" }} />
-                <span className="text-xs text-muted-foreground">{categories.find((c) => c.id === tx.categoryId)!.name}</span>
-              </div>
+              <CategoryBadge category={categories.find((c) => c.id === tx.categoryId)!} size="md" />
             )}
             <div className="flex flex-col items-center gap-0.5 text-xs text-muted-foreground">
               <time dateTime={new Date(tx.loggedAt).toISOString()}>

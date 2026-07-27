@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Palette } from "lucide-react"
+import { CategoryBadge } from "@/components/category-badge"
+import { IconBrowser } from "@/components/icon-browser"
+import * as Phosphor from "@phosphor-icons/react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
@@ -40,6 +43,9 @@ export default function CategoryPage() {
   const [addColor, setAddColor] = useState(COLORS[0])
   const [addIcon, setAddIcon] = useState("")
   const [addKeywords, setAddKeywords] = useState("")
+
+  const [confirmDelete, setConfirmDelete] = useState<Category | null>(null)
+  const [iconBrowserFor, setIconBrowserFor] = useState<"add" | "edit" | null>(null)
 
   const keywordMap = new Map<string, string[]>()
   for (const kw of categoryKeywords) {
@@ -130,6 +136,7 @@ export default function CategoryPage() {
       await store.persist("categoryKeywords", "delete", undefined, kw.id)
     }
     store.invalidate(["categories", "transactions", "categoryKeywords"])
+    setConfirmDelete(null)
     toast(`Category "${cat.name}" deleted`)
   }
 
@@ -201,7 +208,23 @@ export default function CategoryPage() {
                     />
                   ))}
                 </div>
-                <Input value={addIcon} onChange={(e) => setAddIcon(e.target.value)} placeholder="Icon name (optional)" className="h-9 text-sm" />
+                <button
+                  type="button"
+                  onClick={() => setIconBrowserFor("add")}
+                  className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {addIcon ? (
+                    <>
+                      {(() => {
+                        const Icon = (Phosphor as any)[addIcon.charAt(0).toUpperCase() + addIcon.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+                        return Icon ? <Icon weight="duotone" className="h-4 w-4 text-foreground" /> : null
+                      })()}
+                      <span>{addIcon}</span>
+                    </>
+                  ) : (
+                    <span>Choose icon...</span>
+                  )}
+                </button>
                 <Input value={addKeywords} onChange={(e) => setAddKeywords(e.target.value)} placeholder="Keywords (comma separated)" className="h-9 text-sm" />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleAdd} disabled={!addName.trim()}>Save</Button>
@@ -217,7 +240,7 @@ export default function CategoryPage() {
               {categories.map((cat) => (
                 <div key={cat.id} className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50">
                   <div className="flex items-center gap-3">
-                    <div className="h-4 w-4 rounded-full" style={{ backgroundColor: cat.color || "#6B7280" }} />
+                    <CategoryBadge category={cat} />
                     <div>
                       <span className="text-sm font-medium">{cat.name}</span>
                       {(keywordMap.get(cat.id)?.length ?? 0) > 0 && (
@@ -233,7 +256,7 @@ export default function CategoryPage() {
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => handleDelete(cat)}
+                      onClick={() => setConfirmDelete(cat)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -268,7 +291,23 @@ export default function CategoryPage() {
                   />
                 ))}
               </div>
-              <Input value={editIcon} onChange={(e) => setEditIcon(e.target.value)} placeholder="Icon name (optional)" className="h-9 text-sm" />
+              <button
+                type="button"
+                onClick={() => setIconBrowserFor("edit")}
+                className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {editIcon ? (
+                  <>
+                    {(() => {
+                      const Icon = (Phosphor as any)[editIcon.charAt(0).toUpperCase() + editIcon.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+                      return Icon ? <Icon weight="duotone" className="h-4 w-4 text-foreground" /> : null
+                    })()}
+                    <span>{editIcon}</span>
+                  </>
+                ) : (
+                  <span>Choose icon...</span>
+                )}
+              </button>
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs text-muted-foreground">Keywords</p>
                 <div className="flex flex-wrap gap-1">
@@ -291,6 +330,39 @@ export default function CategoryPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmDelete(null)} />
+          <div className="relative w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg">
+            <h3 className="text-sm font-semibold mb-2">Delete "{confirmDelete.name}"?</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Transactions linked to this category will have their category removed (set to null). This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+              <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleDelete(confirmDelete)}>
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {iconBrowserFor === "add" && (
+        <IconBrowser
+          value={addIcon}
+          onChange={setAddIcon}
+          onClose={() => setIconBrowserFor(null)}
+        />
+      )}
+      {iconBrowserFor === "edit" && (
+        <IconBrowser
+          value={editIcon}
+          onChange={setEditIcon}
+          onClose={() => setIconBrowserFor(null)}
+        />
       )}
 
       <UserMenu open={userMenuOpen} onOpenChange={setUserMenuOpen} currentSpaceId={currentId} />

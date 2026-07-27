@@ -18,6 +18,7 @@ export default function TransactionsPage() {
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [accountFilter, setAccountFilter] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("")
   const [monthFilter, setMonthFilter] = useState("")
 
   const { items: accounts } = useAccounts(currentId)
@@ -104,6 +105,17 @@ export default function TransactionsPage() {
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                aria-label="Filter by category"
+              >
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
               <input
                 type="month"
                 value={monthFilter}
@@ -111,9 +123,9 @@ export default function TransactionsPage() {
                 className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
                 aria-label="Filter by month"
               />
-              {(accountFilter || monthFilter) && (
+              {(accountFilter || categoryFilter || monthFilter) && (
                 <button
-                  onClick={() => { setAccountFilter(""); setMonthFilter("") }}
+                  onClick={() => { setAccountFilter(""); setCategoryFilter(""); setMonthFilter("") }}
                   className="h-8 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Clear
@@ -125,6 +137,7 @@ export default function TransactionsPage() {
               accounts={accounts}
               categories={categories}
               accountFilter={accountFilter || undefined}
+              categoryFilter={categoryFilter || undefined}
               monthFilter={monthFilter || undefined}
             />
           </CardContent>

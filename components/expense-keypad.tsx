@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { haptics } from "@/lib/haptics"
 import { Input } from "@/components/ui/input"
 import { matchCategory } from "@/lib/categories"
+import { CategoryBadge } from "@/components/category-badge"
 import type { Account, Category } from "@/lib/db"
 
 const KEYS = [
@@ -130,7 +131,7 @@ export function ExpenseKeypad({ onAmount, onClose, accounts, categories, keyword
               role="radio"
               aria-checked={selectedCategoryId === cat.id}
             >
-              {cat.name}
+              <CategoryBadge category={cat} size="md" />
             </button>
           ))}
         </div>

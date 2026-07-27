@@ -20,6 +20,12 @@ export const metadata: Metadata = {
   title: "LifeDeck",
   description: "Personal & Household Command Center",
   manifest: "/manifest.json",
+  icons: [
+    { rel: "icon", url: "/favicon.ico", sizes: "any" },
+    { rel: "icon", url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    { rel: "icon", url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    { rel: "apple-touch-icon", url: "/apple-touch-icon.png" },
+  ],
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
