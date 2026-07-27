@@ -221,7 +221,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                             {new Date(tx.loggedAt).toLocaleDateString()}
                           </time>
                           {tx.accountId && accountMap.has(tx.accountId) && (
-                            <AccountBadge account={accountMap.get(tx.accountId)!} size="sm" />
+                            <AccountBadge account={accountMap.get(tx.accountId)!} size="md" />
                           )}
 
                         </div>
@@ -249,6 +249,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
         onUpdate={update}
         onDelete={remove}
         categories={categories}
+        accounts={accounts}
       />
 
       <Sheet open={selectedTransfer !== null} onOpenChange={(v) => { if (!v) setSelectedTransfer(null) }}>

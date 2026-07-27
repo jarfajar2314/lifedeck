@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { useCategories, useCategoryKeywords } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
@@ -9,7 +9,7 @@ import { OfflineIndicator } from "@/components/offline-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Palette } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Palette, Loader2 } from "lucide-react"
 import { CategoryBadge } from "@/components/category-badge"
 import { IconBrowser } from "@/components/icon-browser"
 import * as Phosphor from "@phosphor-icons/react"
@@ -24,6 +24,7 @@ import type { Category } from "@/lib/db"
 const COLORS = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899", "#6366F1", "#14B8A6", "#06B6D4", "#F97316", "#6B7280", "#84CC16"]
 
 export default function CategoryPage() {
+  const router = useRouter()
   const { user, isPending } = useAuth()
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -56,8 +57,8 @@ export default function CategoryPage() {
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -147,13 +148,13 @@ export default function CategoryPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/settings/space"
+            <button
+              onClick={() => router.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
-              aria-label="Back to space settings"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Link>
+            </button>
             <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}

@@ -15,20 +15,21 @@ function toPascalCase(str: string): string {
 }
 
 export function AccountBadge({ account, size = "sm" }: AccountBadgeProps) {
+  const color = account.color || "#6B7280"
   const iconName = account.icon || "wallet"
   const IconComponent = (Phosphor as any)[toPascalCase(iconName)]
   const iconEl = IconComponent ? <IconComponent weight="duotone" className={size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"} /> : null
 
   if (size === "sm") {
     return (
-      <span className="inline-flex items-center justify-center rounded-full text-foreground bg-muted" style={{ width: 20, height: 20 }} aria-hidden="true">
+      <span className="inline-flex items-center justify-center rounded-full text-foreground" style={{ width: 20, height: 20, backgroundColor: color }} aria-hidden="true">
         {iconEl}
       </span>
     )
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-foreground" style={{ backgroundColor: `${color}20` }}>
       {iconEl}
       {account.name}
     </span>

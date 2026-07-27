@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type SpaceWithRole } from "@/hooks/use-spaces"
 import { InviteDialog } from "@/components/invite-dialog"
 import { CreateSpaceDialog } from "@/components/create-space-dialog"
@@ -27,6 +27,15 @@ export function SpaceSelector({
   const [open, setOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [open])
 
   const current = spaces.find((s) => s.id === currentId)
 

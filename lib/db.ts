@@ -34,6 +34,7 @@ export interface Account {
   balance: number
   isDefault: boolean
   icon?: string
+  color?: string
   createdAt: Date
 }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { useAccounts, useSpaceMembers, updateSpaceMember } from "@/hooks/use-db"
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Copy, Check, RotateCcw, Users, Wallet, CreditCard, Palette, Trash2, Pencil, X, Plus } from "lucide-react"
+import { ArrowLeft, Copy, Check, RotateCcw, Users, Wallet, CreditCard, Palette, Trash2, Pencil, X, Plus, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
@@ -31,6 +32,7 @@ function formatBalance(balance: number): string {
 const CURRENCIES = ["IDR", "USD", "EUR", "SGD", "MYR", "THB", "JPY", "KRW"]
 
 export default function SpaceSettingsPage() {
+  const router = useRouter()
   const { user, isPending } = useAuth()
   const { spaces, currentId, members, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -54,8 +56,8 @@ export default function SpaceSettingsPage() {
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -128,13 +130,13 @@ export default function SpaceSettingsPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
+            <button
+              onClick={() => router.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
-              aria-label="Back to dashboard"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Link>
+            </button>
             <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}

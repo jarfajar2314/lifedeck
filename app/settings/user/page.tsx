@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { useProfile } from "@/hooks/use-db"
 import { OfflineIndicator } from "@/components/offline-indicator"
@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, User, Lock, Camera, LogOut, Check, X } from "lucide-react"
+import { ArrowLeft, User, Lock, Camera, LogOut, Check, X, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { authClient } from "@/lib/auth-client"
 import { updateProfile } from "@/hooks/use-db"
 
 export default function UserSettingsPage() {
+  const router = useRouter()
   const { user, isPending, signOut } = useAuth()
   const profile = useProfile(user?.id)
 
@@ -30,8 +31,8 @@ export default function UserSettingsPage() {
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -88,13 +89,13 @@ export default function UserSettingsPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
+            <button
+              onClick={() => router.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
-              aria-label="Back to dashboard"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Link>
+            </button>
             <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
           </div>
         </div>

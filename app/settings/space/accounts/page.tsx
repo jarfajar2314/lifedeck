@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { useAccounts } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
@@ -9,7 +9,7 @@ import { OfflineIndicator } from "@/components/offline-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Wallet } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Wallet, Loader2 } from "lucide-react"
 import { capitalize } from "@/lib/utils"
 import { AccountBadge } from "@/components/account-badge"
 import { IconBrowser } from "@/components/icon-browser"
@@ -22,6 +22,8 @@ import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 import type { Account } from "@/lib/db"
 
+const COLORS = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899", "#6366F1", "#14B8A6", "#06B6D4", "#F97316", "#6B7280", "#84CC16"]
+
 function formatBalance(balance: number): string {
   const abs = Math.abs(balance)
   const formatted = "Rp" + abs.toLocaleString("id-ID")
@@ -29,6 +31,7 @@ function formatBalance(balance: number): string {
 }
 
 export default function AccountsPage() {
+  const router = useRouter()
   const { user, isPending } = useAuth()
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -38,16 +41,18 @@ export default function AccountsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [addName, setAddName] = useState("")
   const [addIcon, setAddIcon] = useState("")
+  const [addColor, setAddColor] = useState(COLORS[0])
   const [editing, setEditing] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [editIcon, setEditIcon] = useState("")
+  const [editColor, setEditColor] = useState("")
   const [deleting, setDeleting] = useState<string | null>(null)
   const [iconBrowserFor, setIconBrowserFor] = useState<"add" | "edit" | null>(null)
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -63,7 +68,7 @@ export default function AccountsPage() {
   async function handleAdd() {
     if (!addName.trim()) return
     const id = uid()
-    await store.persist("accounts", "add", { id, spaceId: currentId, name: addName.trim(), balance: 0, icon: addIcon || undefined, createdAt: new Date().toISOString() })
+    await store.persist("accounts", "add", { id, spaceId: currentId, name: addName.trim(), balance: 0, icon: addIcon || undefined, color: addColor, createdAt: new Date().toISOString() })
     store.invalidate(["accounts"])
     setAddName("")
     setAddIcon("")
@@ -75,11 +80,12 @@ export default function AccountsPage() {
     setEditing(acc.id)
     setEditName(acc.name)
     setEditIcon(acc.icon || "")
+    setEditColor(acc.color || COLORS[0])
   }
 
   async function handleSaveEdit(id: string) {
     if (!editName.trim()) return
-    await store.persist("accounts", "update", { name: editName.trim(), icon: editIcon || undefined }, id)
+    await store.persist("accounts", "update", { name: editName.trim(), icon: editIcon || undefined, color: editColor || undefined }, id)
     store.invalidate(["accounts"])
     setEditing(null)
     toast("Account updated")
@@ -100,13 +106,13 @@ export default function AccountsPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/settings/space"
+            <button
+              onClick={() => router.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
-              aria-label="Back to space settings"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Link>
+            </button>
             <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
@@ -149,11 +155,21 @@ export default function AccountsPage() {
           </CardHeader>
           <CardContent>
             {showAdd && (
-              <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border p-3">
+              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border p-4">
                 <div className="flex items-center gap-2">
                   <Input value={addName} onChange={(e) => setAddName(capitalize(e.target.value))} placeholder="Account name" className="h-9 text-sm flex-1" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleAdd() }} />
                   <Button size="sm" onClick={handleAdd} disabled={!addName.trim()}><Check className="h-3.5 w-3.5" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setAddName(""); setAddIcon("") }}><X className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setAddName(""); setAddIcon(""); setAddColor(COLORS[0]) }}><X className="h-3.5 w-3.5" /></Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setAddColor(c)}
+                      className="h-7 w-7 rounded-full border-2 transition-transform"
+                      style={{ backgroundColor: c, borderColor: addColor === c ? "var(--foreground)" : "transparent" }}
+                    />
+                  ))}
                 </div>
                 <button
                   type="button"
@@ -187,6 +203,16 @@ export default function AccountsPage() {
                         <button onClick={() => handleSaveEdit(acc.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-secondary"><Check className="h-3.5 w-3.5" /></button>
                         <button onClick={() => setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-3.5 w-3.5" /></button>
                       </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {COLORS.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setEditColor(c)}
+                            className="h-6 w-6 rounded-full border-2 transition-transform"
+                            style={{ backgroundColor: c, borderColor: editColor === c ? "var(--foreground)" : "transparent" }}
+                          />
+                        ))}
+                      </div>
                       <button
                         type="button"
                         onClick={() => setIconBrowserFor("edit")}
@@ -213,21 +239,25 @@ export default function AccountsPage() {
                       <Button size="sm" variant="ghost" onClick={() => setDeleting(null)}>Cancel</Button>
                     </div>
                     ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <AccountBadge account={acc} />
-                        <span className="text-sm font-medium">{acc.name}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{formatBalance(acc.balance)}</span>
+                    <div className="w-full rounded-xl border border-border overflow-hidden" style={{ borderColor: `${acc.color || "#6B7280"}40` }}>
+                      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                        <div className="flex items-center gap-3">
+                          <AccountBadge account={acc} size="md" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => startEdit(acc)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleting(acc.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => startEdit(acc)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => setDeleting(acc.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                      <div className="px-4 pb-3">
+                        <p className="text-2xl font-bold tabular-nums">{formatBalance(acc.balance)}</p>
                       </div>
-                    </>
+                      <div className="h-1" style={{ backgroundColor: acc.color || "#6B7280" }} />
+                    </div>
                   )}
                 </div>
               ))}
