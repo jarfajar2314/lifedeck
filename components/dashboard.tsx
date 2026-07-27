@@ -20,7 +20,7 @@ import { useRealtime } from "@/hooks/use-realtime"
 import { haptics } from "@/lib/haptics"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Wallet, CreditCard, ListChecks, StickyNote, Plus, ArrowUpRight, ExternalLink } from "lucide-react"
+import { Wallet, CreditCard, ListChecks, StickyNote, Plus, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
@@ -218,7 +218,7 @@ export function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle id="money-heading" className="flex items-center gap-2 text-base">
-                <Wallet className="h-4 w-4" aria-hidden="true" /> Money
+                <Wallet className="h-4 w-4" aria-hidden="true" /> Transactions
               </CardTitle>
               <div className="flex items-center gap-1">
                 <Link
@@ -253,7 +253,7 @@ export function Dashboard() {
                   href="/settings/space/accounts"
                   className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary/50"
                 >
-                  See All <ExternalLink className="h-3 w-3" />
+                  See All <ArrowUpRight className="h-3 w-3" />
                 </Link>
               </CardHeader>
               <CardContent>

@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth-provider"
 import { Dashboard } from "@/components/dashboard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function Home() {
@@ -12,8 +13,8 @@ export default function Home() {
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }

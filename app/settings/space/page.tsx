@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { useAccounts, useSpaceMembers, updateSpaceMember } from "@/hooks/use-db"
@@ -10,12 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Copy, Check, RotateCcw, Users, Wallet, CreditCard, Palette, Trash2, Pencil, X, Plus } from "lucide-react"
+import { ArrowLeft, Copy, Check, RotateCcw, Users, Wallet, CreditCard, Palette, Trash2, Pencil, X, Plus, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, capitalize } from "@/lib/utils"
+import { AccountBadge } from "@/components/account-badge"
+import { IconBrowser } from "@/components/icon-browser"
+import * as Phosphor from "@phosphor-icons/react"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 
@@ -28,6 +32,7 @@ function formatBalance(balance: number): string {
 const CURRENCIES = ["IDR", "USD", "EUR", "SGD", "MYR", "THB", "JPY", "KRW"]
 
 export default function SpaceSettingsPage() {
+  const router = useRouter()
   const { user, isPending } = useAuth()
   const { spaces, currentId, members, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -44,13 +49,15 @@ export default function SpaceSettingsPage() {
   const [copied, setCopied] = useState(false)
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [newAccountName, setNewAccountName] = useState("")
+  const [newAccountIcon, setNewAccountIcon] = useState("")
+  const [iconBrowserFor, setIconBrowserFor] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteInput, setDeleteInput] = useState("")
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+      <div className="flex min-h-dvh items-center justify-center" role="status">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -93,9 +100,10 @@ export default function SpaceSettingsPage() {
   async function handleAddAccount() {
     if (!newAccountName.trim()) return
     const newId = uid()
-    await store.persist("accounts", "add", { id: newId, spaceId: currentId, name: newAccountName.trim(), balance: 0, createdAt: new Date().toISOString() })
+    await store.persist("accounts", "add", { id: newId, spaceId: currentId, name: newAccountName.trim(), balance: 0, icon: newAccountIcon || undefined, createdAt: new Date().toISOString() })
     store.invalidate(["accounts"])
     setNewAccountName("")
+    setNewAccountIcon("")
     setShowAddAccount(false)
     toast(`Account "${newAccountName.trim()}" created`)
   }
@@ -122,13 +130,13 @@ export default function SpaceSettingsPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
+            <button
+              onClick={() => router.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
-              aria-label="Back to dashboard"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Link>
+            </button>
             <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
             <SpaceSelector
               spaces={spaces}
@@ -215,7 +223,7 @@ export default function SpaceSettingsPage() {
                 {accounts.map((a) => (
                   <div key={a.id} className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                      <AccountBadge account={a} />
                       <span className="text-sm font-medium">{a.name}</span>
                       <span className="text-xs text-muted-foreground tabular-nums">{formatBalance(a.balance)}</span>
                     </div>
@@ -229,10 +237,29 @@ export default function SpaceSettingsPage() {
                 ))}
               </div>
               {showAddAccount ? (
-                <div className="flex items-center gap-2 mt-2">
-                  <Input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} placeholder="Account name" className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === "Enter") handleAddAccount() }} autoFocus />
-                  <Button size="sm" onClick={handleAddAccount} disabled={!newAccountName.trim()}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setShowAddAccount(false); setNewAccountName("") }}>Cancel</Button>
+                <div className="flex flex-col gap-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Input value={newAccountName} onChange={(e) => setNewAccountName(capitalize(e.target.value))} placeholder="Account name" className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === "Enter") handleAddAccount() }} autoFocus />
+                    <Button size="sm" onClick={handleAddAccount} disabled={!newAccountName.trim()}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setShowAddAccount(false); setNewAccountName(""); setNewAccountIcon("") }}>Cancel</Button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIconBrowserFor(true)}
+                    className="flex h-7 items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors self-start"
+                  >
+                    {newAccountIcon ? (
+                      <>
+                        {(() => {
+                          const Icon = (Phosphor as any)[newAccountIcon.charAt(0).toUpperCase() + newAccountIcon.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+                          return Icon ? <Icon weight="duotone" className="h-3.5 w-3.5 text-foreground" /> : null
+                        })()}
+                        <span>{newAccountIcon}</span>
+                      </>
+                    ) : (
+                      <span>Choose icon...</span>
+                    )}
+                  </button>
                 </div>
               ) : (
                 <button onClick={() => setShowAddAccount(true)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors mt-1">
@@ -259,6 +286,7 @@ export default function SpaceSettingsPage() {
                     onClick={() => handleSetDefaultAccount(a.id)}
                     className={cn("rounded-lg px-3 py-2 text-xs font-medium transition-colors flex items-center gap-1.5", currentMember?.defaultAccountId === a.id ? "bg-accent-color text-white shadow-sm" : "bg-secondary text-secondary-foreground hover:bg-secondary/80")}
                   >
+                    <AccountBadge account={a} size="sm" />
                     {a.name}
                     <span className="opacity-70 tabular-nums">{formatBalance(a.balance)}</span>
                   </button>
@@ -332,6 +360,10 @@ export default function SpaceSettingsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {iconBrowserFor && (
+        <IconBrowser value={newAccountIcon} onChange={setNewAccountIcon} onClose={() => setIconBrowserFor(false)} />
+      )}
 
       <UserMenu open={userMenuOpen} onOpenChange={setUserMenuOpen} currentSpaceId={currentId} />
     </div>

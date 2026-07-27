@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { toast } from "sonner"
-import { type Transaction, type Category } from "@/lib/db"
+import { type Transaction, type Account, type Category } from "@/lib/db"
 import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from "lucide-react"
+import { CategoryBadge } from "@/components/category-badge"
+import { AccountBadge } from "@/components/account-badge"
+import * as Phosphor from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
 type TransactionDetailProps = {
@@ -17,9 +20,10 @@ type TransactionDetailProps = {
   onUpdate: (id: string, updates: Partial<Omit<Transaction, "id" | "spaceId" | "createdAt">>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   categories?: Category[]
+  accounts?: Account[]
 }
 
-export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, onDelete, categories }: TransactionDetailProps) {
+export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, onDelete, categories, accounts }: TransactionDetailProps) {
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -68,7 +72,17 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   const indicatorClass = tx.type === "expense" ? "bg-destructive/10 text-destructive"
     : tx.type === "income" ? "bg-success/10 text-success"
     : "bg-muted text-muted-foreground"
-  const indicatorIcon = tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+  const indicatorIcon = (() => {
+    if (tx.categoryId && categories?.find((c) => c.id === tx.categoryId)) {
+      const cat = categories.find((c) => c.id === tx.categoryId)!
+      const iconName = cat.icon || ""
+      if (iconName) {
+        const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+        if (Icon) return <Icon weight="duotone" className="h-5 w-5" />
+      }
+    }
+    return tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+  })()
 
   const loggedDate = new Date(tx.loggedAt)
   const formattedDate = loggedDate.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
@@ -171,12 +185,14 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
             {tx.note && (
               <div className="text-center text-sm text-muted-foreground">{tx.note}</div>
             )}
-            {tx.categoryId && categories?.find((c) => c.id === tx.categoryId) && (
-              <div className="flex justify-center items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categories.find((c) => c.id === tx.categoryId)!.color || "#6B7280" }} />
-                <span className="text-xs text-muted-foreground">{categories.find((c) => c.id === tx.categoryId)!.name}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-center gap-2">
+              {tx.accountId && accounts?.find((a) => a.id === tx.accountId) && (
+                <AccountBadge account={accounts.find((a) => a.id === tx.accountId)!} size="md" />
+              )}
+              {tx.categoryId && categories?.find((c) => c.id === tx.categoryId) && (
+                <CategoryBadge category={categories.find((c) => c.id === tx.categoryId)!} size="md" />
+              )}
+            </div>
             <div className="flex flex-col items-center gap-0.5 text-xs text-muted-foreground">
               <time dateTime={new Date(tx.loggedAt).toISOString()}>
                 {formattedDate}

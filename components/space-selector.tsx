@@ -48,7 +48,7 @@ export function SpaceSelector({
 
         {open && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} onPointerDown={(e) => e.stopPropagation()} />
             <div className="absolute left-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-lg">
               {spaces.map((space) => (
                 <button
