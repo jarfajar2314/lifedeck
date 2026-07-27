@@ -33,6 +33,7 @@ export interface Account {
   name: string
   balance: number
   isDefault: boolean
+  icon?: string
   createdAt: Date
 }
 

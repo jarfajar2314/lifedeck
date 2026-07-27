@@ -10,6 +10,8 @@ import { WalletMinimal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { CategoryBadge } from "@/components/category-badge"
+import { AccountBadge } from "@/components/account-badge"
+import * as Phosphor from "@phosphor-icons/react"
 import { type Transaction, type Account, type Category } from "@/lib/db"
 
 type MergedTransfer = {
@@ -168,7 +170,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                             <time className="text-[10px] text-muted-foreground" dateTime={new Date(row.loggedAt).toISOString()}>
                               {new Date(row.loggedAt).toLocaleDateString()}
                             </time>
-                            <span className="text-[10px] text-muted-foreground/60">@{row.fromName} → @{row.toName}</span>
+                            <span className="text-[10px] text-muted-foreground/60">{row.fromName} → {row.toName}</span>
                           </div>
                         </div>
                       </div>
@@ -194,16 +196,23 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-3">
-                      {tx.categoryId && categoryMap.has(tx.categoryId) && (
-                        <CategoryBadge category={categoryMap.get(tx.categoryId)!} size="sm" />
-                      )}
                       <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                        "flex h-8 w-8 items-center justify-center rounded-full",
                         tx.type === "expense" ? "bg-destructive/10 text-destructive"
                           : tx.type === "income" ? "bg-success/10 text-success"
                           : "bg-muted text-muted-foreground"
                       )} aria-hidden="true">
-                        {tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"}
+                        {(() => {
+                          if (tx.categoryId && categoryMap.has(tx.categoryId)) {
+                            const cat = categoryMap.get(tx.categoryId)!
+                            const iconName = cat.icon || ""
+                            if (iconName) {
+                              const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+                              if (Icon) return <Icon weight="duotone" className="h-4 w-4" />
+                            }
+                          }
+                          return tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+                        })()}
                       </div>
                       <div className="text-left">
                         <p className="text-sm font-medium">{tx.note || "Untitled"}</p>
@@ -212,11 +221,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                             {new Date(tx.loggedAt).toLocaleDateString()}
                           </time>
                           {tx.accountId && accountMap.has(tx.accountId) && (
-                            <span className="text-[10px] text-muted-foreground/60">@{accountMap.get(tx.accountId)!.name}</span>
+                            <AccountBadge account={accountMap.get(tx.accountId)!} size="sm" />
                           )}
-                          {tx.categoryId && categoryMap.has(tx.categoryId) && (
-                            <CategoryBadge category={categoryMap.get(tx.categoryId)!} size="sm" />
-                          )}
+
                         </div>
                       </div>
                     </div>

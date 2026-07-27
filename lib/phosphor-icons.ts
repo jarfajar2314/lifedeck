@@ -124,7 +124,9 @@ export const ICON_CATEGORIES: Record<string, { name: string; icon: string }[]> =
   ],
 }
 
-export const ALL_ICONS = Object.values(ICON_CATEGORIES).flat()
+export const ALL_ICONS = Object.entries(ICON_CATEGORIES).flatMap(([category, icons]) =>
+  icons.map((i) => ({ ...i, category }))
+)
 
 export function getIconComponent(iconName?: string): string | null {
   if (!iconName) return null

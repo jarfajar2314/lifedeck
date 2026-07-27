@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { useTransactions } from "@/hooks/use-db"
 import { toast } from "sonner"
 import { Pencil, Check, X, Plus, ArrowRightFromLine, Wallet } from "lucide-react"
+import { AccountBadge } from "@/components/account-badge"
 import { cn } from "@/lib/utils"
 import * as store from "@/lib/data-store"
 import type { Account } from "@/lib/db"
@@ -108,6 +109,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
               </div>
             ) : (
               <div className="flex items-center gap-2 flex-1">
+                <AccountBadge account={acc} />
                 <span>{acc.name}</span>
                 <button onClick={startEditing} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
                   <Pencil className="h-3.5 w-3.5" />

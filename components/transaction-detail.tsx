@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { type Transaction, type Category } from "@/lib/db"
 import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from "lucide-react"
 import { CategoryBadge } from "@/components/category-badge"
+import * as Phosphor from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
 type TransactionDetailProps = {
@@ -69,7 +70,17 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   const indicatorClass = tx.type === "expense" ? "bg-destructive/10 text-destructive"
     : tx.type === "income" ? "bg-success/10 text-success"
     : "bg-muted text-muted-foreground"
-  const indicatorIcon = tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+  const indicatorIcon = (() => {
+    if (tx.categoryId && categories?.find((c) => c.id === tx.categoryId)) {
+      const cat = categories.find((c) => c.id === tx.categoryId)!
+      const iconName = cat.icon || ""
+      if (iconName) {
+        const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+        if (Icon) return <Icon weight="duotone" className="h-5 w-5" />
+      }
+    }
+    return tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+  })()
 
   const loggedDate = new Date(tx.loggedAt)
   const formattedDate = loggedDate.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
