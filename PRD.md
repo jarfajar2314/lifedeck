@@ -2,7 +2,7 @@
 
 ## LifeDeck — Personal & Household Command Center PWA
 
-**Document Version:** 10.1  
+**Document Version:** 11.0
 **Project Name:** LifeDeck  
 **Status:** In Development  
 **Date:** July 24, 2026  
@@ -944,7 +944,73 @@ The legacy `/api/data` (single endpoint for all tables) is deprecated and must n
 
 ---
 
-### 📋 Phase 11: Offline-First & Deployment Preparation
+### ✅ Phase 11: Category UI, Favicon, Filters & Polish
+
+**Status:** 🚧 In Progress — planned
+
+#### 11A. Confirmation Dialog on Category Delete
+
+**Current:** Category deletes immediately with no confirmation.
+
+**Fix:** Add a confirmation dialog before deleting a category. The server-side handler (`app/api/categories/[id]/route.ts`) already cascades null on transactions (`UPDATE transactions SET category_id = NULL`). The client should:
+- Show a dialog: "Delete category [name]?" with explanation that transactions will be unlinked
+- Confirm button deletes the category and its keywords
+- Cancel button closes the dialog
+
+---
+
+#### 11B. Fix Favicon
+
+**Current:** The favicon doesn't appear when the app is loaded.
+
+**Fix:** Ensure `favicon.ico` exists in `public/` and is properly referenced in `app/layout.tsx` via `metadata.icons`. Check format (ICO, PNG) and path resolution.
+
+---
+
+#### 11C. Colored Badge + Phosphoricon Duotone for Categories
+
+**Current:** Categories display as either a small color dot (transaction list) or just text (settings page).
+
+**New Design:**
+- **Colored Badge:** A circle/rounded pill showing the category's assigned color as the background/border
+- **Phosphoricon Duotone:** Replace Lucide icons with Phosphor Duotone icons for categories
+- **100% Dynamic Color Matching:** The icon inside inherits theme text colors (`text-primary`, `text-foreground`), while the circle badge uses the category's assigned accent color
+- Applied in: category settings page list, transaction list, transaction detail, account detail
+
+**Installation:** `npm install phosphor-react` (or `@phosphor-icons/react`)
+
+---
+
+#### 11D. Icon Browser Component
+
+**Current:** Category icon field is a plain text input expecting an icon name string.
+
+**New Design:** Replace the text input with a visual icon browser component:
+- Shows a scrollable grid of Phosphoricon Duotone icons
+- Categories: arrows, finance, shopping, food, transport, health, education, entertainment, communication, weather, devices
+- Selected icon gets highlighted
+- Clicking an icon sets it and closes the browser
+- Reusable component: `components/icon-browser.tsx`
+
+---
+
+#### 11E. Space Selector Click-Outside Close
+
+**Current:** The space selector dropdown should close when clicking anywhere outside of it.
+
+**Fix:** The current implementation uses a `fixed inset-0` backdrop div. Verify the z-index stacking context doesn't block it. If the backdrop is being intercepted by a parent element, add `pointer-events: none` on the trigger button or restructure the overlay.
+
+---
+
+#### 11F. Category Filter on /transactions Page
+
+**Current:** The transactions page has account and month filters but no category filter.
+
+**Fix:** Add a category filter dropdown (or select) alongside the existing account and month filters. Filter transactions client-side by `categoryId`.
+
+---
+
+### 📋 Phase 12: Offline-First & Deployment Preparation
 
 **Status:** ❌ Not Started
 
