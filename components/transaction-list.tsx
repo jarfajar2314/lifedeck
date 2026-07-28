@@ -145,26 +145,36 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
     )
   }
 
+  const hasFilters = Boolean(accountFilter || categoryFilter || monthFilter)
+
   return (
     <>
       <div className="flex flex-col gap-1" role="region" aria-label="Transactions">
         <div className="flex items-center justify-between px-1 pb-2">
           <span className="text-xs text-muted-foreground">
-            {accountFilter || categoryFilter || monthFilter ? "Total (Filtered)" : "Recent"}
+            {hasFilters ? "Total (Filtered)" : "Recent"}
           </span>
           <div className="flex items-center gap-2 text-sm font-semibold tabular-nums">
-            {totalIncome > 0 && (
-              <span className="text-success" aria-label={`Total income: Rp${totalIncome.toLocaleString("id-ID")}`}>
-                +Rp{totalIncome.toLocaleString("id-ID")}
-              </span>
-            )}
-            {totalExpenses > 0 && (
+            {hasFilters ? (
+              <>
+                {totalIncome > 0 && (
+                  <span className="text-success" aria-label={`Total income: Rp${totalIncome.toLocaleString("id-ID")}`}>
+                    +Rp{totalIncome.toLocaleString("id-ID")}
+                  </span>
+                )}
+                {totalExpenses > 0 && (
+                  <span className="text-destructive" aria-label={`Total expenses: Rp${totalExpenses.toLocaleString("id-ID")}`}>
+                    -Rp{totalExpenses.toLocaleString("id-ID")}
+                  </span>
+                )}
+                {totalIncome === 0 && totalExpenses === 0 && (
+                  <span className="text-muted-foreground">Rp0</span>
+                )}
+              </>
+            ) : (
               <span className="text-destructive" aria-label={`Total expenses: Rp${totalExpenses.toLocaleString("id-ID")}`}>
                 -Rp{totalExpenses.toLocaleString("id-ID")}
               </span>
-            )}
-            {totalIncome === 0 && totalExpenses === 0 && (
-              <span className="text-muted-foreground">Rp0</span>
             )}
           </div>
         </div>
