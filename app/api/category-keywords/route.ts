@@ -2,7 +2,7 @@ import { query } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, toCamel, coerceNumeric, errorResponse, successResponse, toSnake } from "@/lib/api-utils"
 import { sseManager } from "@/lib/sse-manager"
 
-const TABLE = "category_keywords"
+const TABLE = "categoryKeywords"
 
 export async function GET(request: Request) {
   try {
