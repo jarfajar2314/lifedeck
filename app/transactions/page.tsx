@@ -12,6 +12,7 @@ import { ArrowLeft, Receipt, Filter, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 
 export default function TransactionsPage() {
   const router = useRouter()
@@ -58,7 +59,7 @@ export default function TransactionsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}

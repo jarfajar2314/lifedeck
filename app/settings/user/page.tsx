@@ -14,6 +14,7 @@ import { ArrowLeft, User, Lock, Camera, LogOut, Check, X, Loader2 } from "lucide
 import { toast } from "sonner"
 import { authClient } from "@/lib/auth-client"
 import { updateProfile } from "@/hooks/use-db"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 
 export default function UserSettingsPage() {
   const router = useRouter()
@@ -96,7 +97,7 @@ export default function UserSettingsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
           </div>
         </div>
       </header>

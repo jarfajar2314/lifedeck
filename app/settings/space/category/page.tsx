@@ -17,6 +17,7 @@ import * as Phosphor from "@phosphor-icons/react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 import { toast } from "sonner"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
@@ -176,7 +177,7 @@ export default function CategoryPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
