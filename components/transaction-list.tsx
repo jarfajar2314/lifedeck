@@ -67,9 +67,6 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
       })
     }
 
-    const expenses = filtered.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
-    const income = filtered.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
-
     const paired = new Set<string>()
     const merged: RowItem[] = []
 
@@ -104,6 +101,14 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
       }
       merged.push(tx)
     }
+
+    const expenses = filtered
+      .filter((t) => t.type === "expense" || (accountFilter && t.type === "transfer"))
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    const income = filtered
+      .filter((t) => t.type === "income" && (Boolean(accountFilter) || !paired.has(t.id)))
+      .reduce((sum, t) => sum + t.amount, 0)
 
     const sliced = limit ? merged.slice(0, limit) : merged
     return {
@@ -257,10 +262,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     </div>
                     <span className={cn(
                       "text-sm font-semibold tabular-nums",
-                      tx.type === "expense" && "text-destructive",
-                      tx.type === "income" && "text-success"
+                      (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
                     )}>
-                      {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+                      {tx.type === "income" ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
                     </span>
                   </button>
                 </motion.li>
