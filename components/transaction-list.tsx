@@ -182,6 +182,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                 )
               }
               const tx = row as Transaction
+              const cat = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
+              const catColor = cat?.color
+
               return (
                 <motion.li
                   key={tx.id}
@@ -196,15 +199,20 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full",
-                        tx.type === "expense" ? "bg-destructive/10 text-destructive"
-                          : tx.type === "income" ? "bg-success/10 text-success"
-                          : "bg-muted text-muted-foreground"
-                      )} aria-hidden="true">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full",
+                          !catColor && (
+                            tx.type === "expense" ? "bg-destructive/10 text-destructive"
+                              : tx.type === "income" ? "bg-success/10 text-success"
+                              : "bg-muted text-muted-foreground"
+                          )
+                        )}
+                        style={catColor ? { backgroundColor: `${catColor}20`, color: catColor } : undefined}
+                        aria-hidden="true"
+                      >
                         {(() => {
-                          if (tx.categoryId && categoryMap.has(tx.categoryId)) {
-                            const cat = categoryMap.get(tx.categoryId)!
+                          if (cat) {
                             const iconName = cat.icon || ""
                             if (iconName) {
                               const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
