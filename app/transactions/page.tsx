@@ -93,12 +93,12 @@ export default function TransactionsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
               <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <select
                 value={accountFilter}
                 onChange={(e) => setAccountFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[100px] max-w-[140px] rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by account"
               >
                 <option value="">All accounts</option>
@@ -109,7 +109,7 @@ export default function TransactionsPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[100px] max-w-[140px] rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by category"
               >
                 <option value="">All categories</option>
@@ -121,13 +121,13 @@ export default function TransactionsPage() {
                 type="month"
                 value={monthFilter}
                 onChange={(e) => setMonthFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[130px] rounded-lg border border-input bg-background px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by month"
               />
               {(accountFilter || categoryFilter || monthFilter) && (
                 <button
                   onClick={() => { setAccountFilter(""); setCategoryFilter(""); setMonthFilter("") }}
-                  className="h-8 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="h-8 shrink-0 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Clear
                 </button>

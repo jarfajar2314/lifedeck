@@ -48,7 +48,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
-  const { displayed } = useMemo(() => {
+  const { displayed, totalExpenses, totalIncome } = useMemo(() => {
     let filtered = items
 
     if (accountFilter) {
@@ -66,6 +66,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
         return ym === monthFilter
       })
     }
+
+    const expenses = filtered.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
+    const income = filtered.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
 
     const paired = new Set<string>()
     const merged: RowItem[] = []
@@ -103,8 +106,13 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
     }
 
     const sliced = limit ? merged.slice(0, limit) : merged
-    return { displayed: sliced, hasMore: limit ? merged.length > limit : false }
-  }, [items, accountMap, limit, accountFilter, monthFilter])
+    return {
+      displayed: sliced,
+      hasMore: limit ? merged.length > limit : false,
+      totalExpenses: expenses,
+      totalIncome: income,
+    }
+  }, [items, accountMap, limit, accountFilter, categoryFilter, monthFilter])
 
   if (loading) {
     return (
@@ -135,14 +143,26 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
   return (
     <>
       <div className="flex flex-col gap-1" role="region" aria-label="Transactions">
-        {!accountFilter && (
-          <div className="flex items-center justify-between px-1 pb-2">
-            <span className="text-xs text-muted-foreground">Recent</span>
-            <span className="text-sm font-semibold text-destructive tabular-nums" aria-label={`Total expenses: Rp${items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}`}>
-              -Rp{items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}
-            </span>
+        <div className="flex items-center justify-between px-1 pb-2">
+          <span className="text-xs text-muted-foreground">
+            {accountFilter || categoryFilter || monthFilter ? "Total (Filtered)" : "Recent"}
+          </span>
+          <div className="flex items-center gap-2 text-sm font-semibold tabular-nums">
+            {totalIncome > 0 && (
+              <span className="text-success" aria-label={`Total income: Rp${totalIncome.toLocaleString("id-ID")}`}>
+                +Rp{totalIncome.toLocaleString("id-ID")}
+              </span>
+            )}
+            {totalExpenses > 0 && (
+              <span className="text-destructive" aria-label={`Total expenses: Rp${totalExpenses.toLocaleString("id-ID")}`}>
+                -Rp{totalExpenses.toLocaleString("id-ID")}
+              </span>
+            )}
+            {totalIncome === 0 && totalExpenses === 0 && (
+              <span className="text-muted-foreground">Rp0</span>
+            )}
           </div>
-        )}
+        </div>
         <ul className="flex flex-col gap-0.5" aria-label="Transaction list">
           <AnimatePresence initial={false}>
             {displayed.map((row, i) => {
