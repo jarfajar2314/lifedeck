@@ -129,7 +129,24 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               <label className="text-xs text-muted-foreground">Category</label>
               <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select category">
+                    {(() => {
+                      if (!categoryId) return "None"
+                      const selectedCat = categories?.find((c) => c.id === categoryId)
+                      if (!selectedCat) return "Select category"
+                      return (
+                        <span className="flex items-center gap-2">
+                          {selectedCat.color && (
+                            <span
+                              className="h-2 w-2 rounded-full inline-block shrink-0"
+                              style={{ backgroundColor: selectedCat.color }}
+                            />
+                          )}
+                          {selectedCat.name}
+                        </span>
+                      )
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="" label="None">None</SelectItem>
