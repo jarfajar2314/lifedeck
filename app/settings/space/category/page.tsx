@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Palette, Loader2 } from "lucide-react"
 import { CategoryBadge } from "@/components/category-badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { IconBrowser } from "@/components/icon-browser"
 import * as Phosphor from "@phosphor-icons/react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -29,7 +30,7 @@ export default function CategoryPage() {
   const { spaces, currentId, setCurrentId, createSpace, joinSpace, regenerateInviteCode } = useSpaces(user?.id)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  const categories = useCategories(currentId)
+  const { items: categories, loading: categoriesLoading } = useCategories(currentId)
   const categoryKeywords = useCategoryKeywords(currentId)
 
   const [editing, setEditing] = useState<Category | null>(null)
@@ -44,6 +45,10 @@ export default function CategoryPage() {
   const [addColor, setAddColor] = useState(COLORS[0])
   const [addIcon, setAddIcon] = useState("")
   const [addKeywords, setAddKeywords] = useState("")
+
+  const [adding, setAdding] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deletingCat, setDeletingCat] = useState(false)
 
   const [confirmDelete, setConfirmDelete] = useState<Category | null>(null)
   const [iconBrowserFor, setIconBrowserFor] = useState<"add" | "edit" | null>(null)
@@ -72,19 +77,24 @@ export default function CategoryPage() {
   }
 
   async function handleAdd() {
-    if (!addName.trim()) return
-    const id = uid()
-    await store.persist("categories", "add", { id, spaceId: currentId, name: addName.trim(), color: addColor, icon: addIcon || undefined, createdAt: new Date().toISOString() })
-    for (const kw of addKeywords.split(",").map((s) => s.trim()).filter(Boolean)) {
-      await store.persist("categoryKeywords", "add", { id: uid(), spaceId: currentId, categoryId: id, keyword: kw.toLowerCase(), createdAt: new Date().toISOString() })
+    if (!addName.trim() || adding) return
+    setAdding(true)
+    try {
+      const id = uid()
+      await store.persist("categories", "add", { id, spaceId: currentId, name: addName.trim(), color: addColor, icon: addIcon || undefined, createdAt: new Date().toISOString() })
+      for (const kw of addKeywords.split(",").map((s) => s.trim()).filter(Boolean)) {
+        await store.persist("categoryKeywords", "add", { id: uid(), spaceId: currentId, categoryId: id, keyword: kw.toLowerCase(), createdAt: new Date().toISOString() })
+      }
+      store.invalidate(["categories", "categoryKeywords"])
+      setAddName("")
+      setAddColor(COLORS[0])
+      setAddIcon("")
+      setAddKeywords("")
+      setShowAdd(false)
+      toast(`Category "${addName.trim()}" created`)
+    } finally {
+      setAdding(false)
     }
-    store.invalidate(["categories", "categoryKeywords"])
-    setAddName("")
-    setAddColor(COLORS[0])
-    setAddIcon("")
-    setAddKeywords("")
-    setShowAdd(false)
-    toast(`Category "${addName.trim()}" created`)
   }
 
   function startEdit(cat: Category) {
@@ -97,17 +107,22 @@ export default function CategoryPage() {
   }
 
   async function handleSaveEdit() {
-    if (!editing || !editName.trim()) return
-    await store.persist("categories", "update", { name: editName.trim(), color: editColor, icon: editIcon || undefined }, editing.id)
-    for (const kw of keywordList) {
-      const exists = categoryKeywords.find((k) => k.categoryId === editing.id && k.keyword === kw)
-      if (!exists) {
-        await store.persist("categoryKeywords", "add", { id: uid(), spaceId: currentId, categoryId: editing.id, keyword: kw.toLowerCase(), createdAt: new Date().toISOString() })
+    if (!editing || !editName.trim() || savingEdit) return
+    setSavingEdit(true)
+    try {
+      await store.persist("categories", "update", { name: editName.trim(), color: editColor, icon: editIcon || undefined }, editing.id)
+      for (const kw of keywordList) {
+        const exists = categoryKeywords.find((k) => k.categoryId === editing.id && k.keyword === kw)
+        if (!exists) {
+          await store.persist("categoryKeywords", "add", { id: uid(), spaceId: currentId, categoryId: editing.id, keyword: kw.toLowerCase(), createdAt: new Date().toISOString() })
+        }
       }
+      store.invalidate(["categories", "categoryKeywords"])
+      setEditing(null)
+      toast("Category updated")
+    } finally {
+      setSavingEdit(false)
     }
-    store.invalidate(["categories", "categoryKeywords"])
-    setEditing(null)
-    toast("Category updated")
   }
 
   function addKeywordToEdit() {
@@ -132,13 +147,19 @@ export default function CategoryPage() {
   }
 
   async function handleDelete(cat: Category) {
-    await store.persist("categories", "delete", undefined, cat.id)
-    for (const kw of categoryKeywords.filter((k) => k.categoryId === cat.id)) {
-      await store.persist("categoryKeywords", "delete", undefined, kw.id)
+    if (deletingCat) return
+    setDeletingCat(true)
+    try {
+      await store.persist("categories", "delete", undefined, cat.id)
+      for (const kw of categoryKeywords.filter((k) => k.categoryId === cat.id)) {
+        await store.persist("categoryKeywords", "delete", undefined, kw.id)
+      }
+      store.invalidate(["categories", "transactions", "categoryKeywords"])
+      setConfirmDelete(null)
+      toast(`Category "${cat.name}" deleted`)
+    } finally {
+      setDeletingCat(false)
     }
-    store.invalidate(["categories", "transactions", "categoryKeywords"])
-    setConfirmDelete(null)
-    toast(`Category "${cat.name}" deleted`)
   }
 
   return (
@@ -228,43 +249,62 @@ export default function CategoryPage() {
                 </button>
                 <Input value={addKeywords} onChange={(e) => setAddKeywords(e.target.value)} placeholder="Keywords (comma separated)" className="h-9 text-sm" />
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAdd} disabled={!addName.trim()}>Save</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setAddName(""); setAddColor(COLORS[0]); setAddIcon(""); setAddKeywords("") }}>Cancel</Button>
+                  <Button size="sm" onClick={handleAdd} disabled={!addName.trim() || adding}>
+                    {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                    {adding ? "Saving..." : "Save"}
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={adding} onClick={() => { setShowAdd(false); setAddName(""); setAddColor(COLORS[0]); setAddIcon(""); setAddKeywords("") }}>Cancel</Button>
                 </div>
               </div>
             )}
 
             <div className="flex flex-col gap-1">
-              {categories.length === 0 && (
+              {categoriesLoading ? (
+                <div className="flex flex-col gap-2 py-1" role="status" aria-label="Loading categories">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-6 w-24 rounded-full" />
+                        <Skeleton className="h-4 w-28" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : categories.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">No categories yet</p>
-              )}
-              {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50">
-                  <div className="flex items-center gap-3">
-                    <CategoryBadge category={cat} />
-                    <div>
-                      <span className="text-sm font-medium">{cat.name}</span>
-                      {(keywordMap.get(cat.id)?.length ?? 0) > 0 && (
-                        <span className="ml-2 text-xs text-muted-foreground">({keywordMap.get(cat.id)!.length} keywords)</span>
-                      )}
+              ) : (
+                categories.map((cat) => (
+                  <div key={cat.id} className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50">
+                    <div className="flex items-center gap-3">
+                      <CategoryBadge category={cat} />
+                      <div>
+                        <span className="text-sm font-medium">{cat.name}</span>
+                        {(keywordMap.get(cat.id)?.length ?? 0) > 0 && (
+                          <span className="ml-2 text-xs text-muted-foreground">({keywordMap.get(cat.id)!.length} keywords)</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEdit(cat)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(cat)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => startEdit(cat)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(cat)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -272,21 +312,22 @@ export default function CategoryPage() {
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setEditing(null)} />
+          <div className="fixed inset-0 bg-black/50" onClick={() => !savingEdit && setEditing(null)} />
           <div className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold">Edit Category</h3>
-              <button onClick={() => setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary">
+              <button onClick={() => !savingEdit && setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary" disabled={savingEdit}>
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="flex flex-col gap-3">
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Category name" className="h-9 text-sm" />
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Category name" className="h-9 text-sm" disabled={savingEdit} />
               <div className="flex flex-wrap gap-1.5">
                 {COLORS.map((c) => (
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
+                    disabled={savingEdit}
                     className="h-7 w-7 rounded-full border-2 transition-transform"
                     style={{ backgroundColor: c, borderColor: editColor === c ? "var(--foreground)" : "transparent" }}
                   />
@@ -294,6 +335,7 @@ export default function CategoryPage() {
               </div>
               <button
                 type="button"
+                disabled={savingEdit}
                 onClick={() => setIconBrowserFor("edit")}
                 className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
@@ -315,18 +357,21 @@ export default function CategoryPage() {
                   {keywordList.map((kw) => (
                     <span key={kw} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs">
                       {kw}
-                      <button onClick={() => removeKeyword(kw)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                      <button onClick={() => removeKeyword(kw)} disabled={savingEdit} className="hover:text-destructive"><X className="h-3 w-3" /></button>
                     </span>
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <Input value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="Add keywords" className="h-8 text-sm flex-1" onKeyDown={(e) => { if (e.key === "Enter") addKeywordToEdit() }} />
-                  <Button size="sm" variant="outline" onClick={addKeywordToEdit}><Plus className="h-3.5 w-3.5" /></Button>
+                  <Input value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="Add keywords" className="h-8 text-sm flex-1" disabled={savingEdit} onKeyDown={(e) => { if (e.key === "Enter") addKeywordToEdit() }} />
+                  <Button size="sm" variant="outline" onClick={addKeywordToEdit} disabled={savingEdit}><Plus className="h-3.5 w-3.5" /></Button>
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditing(null)}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={handleSaveEdit}><Check className="h-3.5 w-3.5" /> Save</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</Button>
+                <Button size="sm" className="flex-1" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}>
+                  {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5" />}
+                  {savingEdit ? "Saving..." : "Save"}
+                </Button>
               </div>
             </div>
           </div>
@@ -335,16 +380,17 @@ export default function CategoryPage() {
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmDelete(null)} />
+          <div className="fixed inset-0 bg-black/50" onClick={() => !deletingCat && setConfirmDelete(null)} />
           <div className="relative w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg">
             <h3 className="text-sm font-semibold mb-2">Delete "{confirmDelete.name}"?</h3>
             <p className="text-xs text-muted-foreground mb-4">
               Transactions linked to this category will have their category removed (set to null). This action cannot be undone.
             </p>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-              <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleDelete(confirmDelete)}>
-                <Trash2 className="h-3.5 w-3.5" /> Delete
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)} disabled={deletingCat}>Cancel</Button>
+              <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleDelete(confirmDelete)} disabled={deletingCat}>
+                {deletingCat ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Trash2 className="h-3.5 w-3.5" />}
+                {deletingCat ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>

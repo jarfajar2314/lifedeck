@@ -132,9 +132,9 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="" label="None">None</SelectItem>
                   {categories?.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
+                    <SelectItem key={cat.id} value={cat.id} label={cat.name}>
                       <span className="flex items-center gap-2">
                         {cat.color && <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: cat.color }} />}
                         {cat.name}

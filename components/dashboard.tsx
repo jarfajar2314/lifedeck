@@ -37,7 +37,7 @@ export function Dashboard() {
   useRealtime()
 
   const { items: accounts, loading: accountsLoading } = useAccounts(currentId)
-  const categories = useCategories(currentId)
+  const { items: categories } = useCategories(currentId)
   const categoryKeywords = useCategoryKeywords(currentId)
   const keywordMap = useMemo(() => {
     const m = new Map<string, string>()

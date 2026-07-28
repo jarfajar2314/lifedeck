@@ -24,7 +24,7 @@ export default function TransactionsPage() {
   const [monthFilter, setMonthFilter] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
 
   const { items: accounts } = useAccounts(currentId)
-  const categories = useCategories(currentId)
+  const { items: categories } = useCategories(currentId)
 
   const currentMonth = monthFilter
 
