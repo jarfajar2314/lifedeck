@@ -197,7 +197,8 @@ export function useNotes(spaceId: string) {
 }
 
 export function useCategories(spaceId: string) {
-  return useTable<Category>("categories", spaceId).items
+  const { items, loading } = useTable<Category>("categories", spaceId)
+  return { items, loading }
 }
 
 export function useCategoryKeywords(spaceId: string) {

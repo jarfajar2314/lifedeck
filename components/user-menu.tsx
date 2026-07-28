@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth-provider"
 import { useTheme } from "@/components/theme-provider"
 import { useProfile, updateProfile } from "@/hooks/use-db"
 import { toast } from "sonner"
-import { LogOut, Palette, Moon, Sun, DollarSign, User, Settings, ExternalLink } from "lucide-react"
+import { LogOut, Palette, Moon, Sun, DollarSign, User, Settings, ExternalLink, BarChart2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -84,6 +84,15 @@ export function UserMenu({ open, onOpenChange, currentSpaceId }: UserMenuProps) 
 
           {/* Shortcuts */}
           <section aria-label="Shortcuts" className="py-4 space-y-1">
+            <Link
+              href="/reports"
+              onClick={() => onOpenChange(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-secondary/50"
+            >
+              <BarChart2 className="h-4 w-4 text-muted-foreground" />
+              Reports & Analytics
+              <ExternalLink className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
+            </Link>
             <Link
               href="/settings/user"
               onClick={() => onOpenChange(false)}

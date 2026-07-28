@@ -7,7 +7,7 @@
 ## 1. Bootstrapping & Source of Truth
 
 * **Read First Directive:** Every interaction/task **MUST** start by reading this `AGENTS.md` file to establish operational constraints and guidelines.
-* **Master Requirement Guide:** Refer to `LifeDeck_PRD.md` as the ultimate source of truth for features, architecture, database schemas, color theme requirements, and product vision. Never invent features or architectural patterns that conflict with the PRD.
+* **Master Requirement Guide:** Refer to `PRD.md` and `Architecture.md` as the ultimate source of truth for features, architecture, database schemas, color theme requirements, and product vision. Never invent features or architectural patterns that conflict with the PRD or Architecture documentation.
 
 ---
 

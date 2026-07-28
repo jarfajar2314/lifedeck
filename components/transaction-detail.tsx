@@ -69,12 +69,15 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
     onOpenChange(false)
   }
 
-  const indicatorClass = tx.type === "expense" ? "bg-destructive/10 text-destructive"
-    : tx.type === "income" ? "bg-success/10 text-success"
-    : "bg-muted text-muted-foreground"
+  const cat = tx.categoryId ? categories?.find((c) => c.id === tx.categoryId) : undefined
+  const catColor = cat?.color
+  const indicatorClass = !catColor ? (
+    tx.type === "expense" ? "bg-destructive/10 text-destructive"
+      : tx.type === "income" ? "bg-success/10 text-success"
+      : "bg-muted text-muted-foreground"
+  ) : ""
   const indicatorIcon = (() => {
-    if (tx.categoryId && categories?.find((c) => c.id === tx.categoryId)) {
-      const cat = categories.find((c) => c.id === tx.categoryId)!
+    if (cat) {
       const iconName = cat.icon || ""
       if (iconName) {
         const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
@@ -126,12 +129,29 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               <label className="text-xs text-muted-foreground">Category</label>
               <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select category">
+                    {(() => {
+                      if (!categoryId) return "None"
+                      const selectedCat = categories?.find((c) => c.id === categoryId)
+                      if (!selectedCat) return "Select category"
+                      return (
+                        <span className="flex items-center gap-2">
+                          {selectedCat.color && (
+                            <span
+                              className="h-2 w-2 rounded-full inline-block shrink-0"
+                              style={{ backgroundColor: selectedCat.color }}
+                            />
+                          )}
+                          {selectedCat.name}
+                        </span>
+                      )
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="" label="None">None</SelectItem>
                   {categories?.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
+                    <SelectItem key={cat.id} value={cat.id} label={cat.name}>
                       <span className="flex items-center gap-2">
                         {cat.color && <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: cat.color }} />}
                         {cat.name}
@@ -175,7 +195,11 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
         ) : (
           <div className="flex flex-col gap-4 p-4 pt-0">
             <div className="flex flex-col items-center gap-2 py-4">
-              <div className={cn("flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold", indicatorClass)} aria-hidden="true">
+              <div
+                className={cn("flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold", indicatorClass)}
+                style={catColor ? { backgroundColor: `${catColor}20`, color: catColor } : undefined}
+                aria-hidden="true"
+              >
                 {indicatorIcon}
               </div>
               <span className={cn("text-2xl font-bold tabular-nums", tx.type === "expense" && "text-destructive", tx.type === "income" && "text-success")}>

@@ -15,6 +15,7 @@ import { ArrowLeft, Copy, Check, RotateCcw, Users, Wallet, CreditCard, Palette, 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 import { toast } from "sonner"
 import { cn, capitalize } from "@/lib/utils"
 import { AccountBadge } from "@/components/account-badge"
@@ -137,7 +138,7 @@ export default function SpaceSettingsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}

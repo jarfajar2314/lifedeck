@@ -220,17 +220,17 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         "text-xs font-bold",
-                        tx.type === "expense" ? "text-destructive" : tx.type === "income" ? "text-success" : "text-muted-foreground"
+                        (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
                       )}>
-                        {tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"}
+                        {tx.type === "income" ? "↑" : "↓"}
                       </span>
                       <span className="text-sm">{tx.note || "Untitled"}</span>
                     </div>
                     <span className={cn(
                       "text-sm font-semibold tabular-nums",
-                      tx.type === "expense" ? "text-destructive" : tx.type === "income" ? "text-success" : ""
+                      (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
                     )}>
-                      {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+                      {tx.type === "income" ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
                     </span>
                   </div>
                 ))}

@@ -48,7 +48,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
 
-  const { displayed } = useMemo(() => {
+  const { displayed, totalExpenses, totalIncome } = useMemo(() => {
     let filtered = items
 
     if (accountFilter) {
@@ -102,9 +102,22 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
       merged.push(tx)
     }
 
+    const expenses = filtered
+      .filter((t) => t.type === "expense" || (accountFilter && t.type === "transfer"))
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    const income = filtered
+      .filter((t) => t.type === "income" && (Boolean(accountFilter) || !paired.has(t.id)))
+      .reduce((sum, t) => sum + t.amount, 0)
+
     const sliced = limit ? merged.slice(0, limit) : merged
-    return { displayed: sliced, hasMore: limit ? merged.length > limit : false }
-  }, [items, accountMap, limit, accountFilter, monthFilter])
+    return {
+      displayed: sliced,
+      hasMore: limit ? merged.length > limit : false,
+      totalExpenses: expenses,
+      totalIncome: income,
+    }
+  }, [items, accountMap, limit, accountFilter, categoryFilter, monthFilter])
 
   if (loading) {
     return (
@@ -132,17 +145,39 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
     )
   }
 
+  const hasFilters = Boolean(accountFilter || categoryFilter || monthFilter)
+
   return (
     <>
       <div className="flex flex-col gap-1" role="region" aria-label="Transactions">
-        {!accountFilter && (
-          <div className="flex items-center justify-between px-1 pb-2">
-            <span className="text-xs text-muted-foreground">Recent</span>
-            <span className="text-sm font-semibold text-destructive tabular-nums" aria-label={`Total expenses: Rp${items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}`}>
-              -Rp{items.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0).toLocaleString("id-ID")}
-            </span>
+        <div className="flex items-center justify-between px-1 pb-2">
+          <span className="text-xs text-muted-foreground">
+            {hasFilters ? "Total (Filtered)" : "Recent"}
+          </span>
+          <div className="flex items-center gap-2 text-sm font-semibold tabular-nums">
+            {hasFilters ? (
+              <>
+                {totalIncome > 0 && (
+                  <span className="text-success" aria-label={`Total income: Rp${totalIncome.toLocaleString("id-ID")}`}>
+                    +Rp{totalIncome.toLocaleString("id-ID")}
+                  </span>
+                )}
+                {totalExpenses > 0 && (
+                  <span className="text-destructive" aria-label={`Total expenses: Rp${totalExpenses.toLocaleString("id-ID")}`}>
+                    -Rp{totalExpenses.toLocaleString("id-ID")}
+                  </span>
+                )}
+                {totalIncome === 0 && totalExpenses === 0 && (
+                  <span className="text-muted-foreground">Rp0</span>
+                )}
+              </>
+            ) : (
+              <span className="text-destructive" aria-label={`Total expenses: Rp${totalExpenses.toLocaleString("id-ID")}`}>
+                -Rp{totalExpenses.toLocaleString("id-ID")}
+              </span>
+            )}
           </div>
-        )}
+        </div>
         <ul className="flex flex-col gap-0.5" aria-label="Transaction list">
           <AnimatePresence initial={false}>
             {displayed.map((row, i) => {
@@ -182,6 +217,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                 )
               }
               const tx = row as Transaction
+              const cat = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
+              const catColor = cat?.color
+
               return (
                 <motion.li
                   key={tx.id}
@@ -196,15 +234,20 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary/50 active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full",
-                        tx.type === "expense" ? "bg-destructive/10 text-destructive"
-                          : tx.type === "income" ? "bg-success/10 text-success"
-                          : "bg-muted text-muted-foreground"
-                      )} aria-hidden="true">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full",
+                          !catColor && (
+                            tx.type === "expense" ? "bg-destructive/10 text-destructive"
+                              : tx.type === "income" ? "bg-success/10 text-success"
+                              : "bg-muted text-muted-foreground"
+                          )
+                        )}
+                        style={catColor ? { backgroundColor: `${catColor}20`, color: catColor } : undefined}
+                        aria-hidden="true"
+                      >
                         {(() => {
-                          if (tx.categoryId && categoryMap.has(tx.categoryId)) {
-                            const cat = categoryMap.get(tx.categoryId)!
+                          if (cat) {
                             const iconName = cat.icon || ""
                             if (iconName) {
                               const Icon = (Phosphor as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
@@ -229,10 +272,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     </div>
                     <span className={cn(
                       "text-sm font-semibold tabular-nums",
-                      tx.type === "expense" && "text-destructive",
-                      tx.type === "income" && "text-success"
+                      (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
                     )}>
-                      {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+                      {tx.type === "income" ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
                     </span>
                   </button>
                 </motion.li>

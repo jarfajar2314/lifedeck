@@ -8,10 +8,12 @@ import { useSpaces } from "@/hooks/use-spaces"
 import { TransactionList } from "@/components/transaction-list"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Receipt, Filter, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { ArrowLeft, Receipt, Filter, Loader2, BarChart2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SpaceSelector } from "@/components/space-selector"
 import { UserMenu } from "@/components/user-menu"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 
 export default function TransactionsPage() {
   const router = useRouter()
@@ -24,7 +26,7 @@ export default function TransactionsPage() {
   const [monthFilter, setMonthFilter] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
 
   const { items: accounts } = useAccounts(currentId)
-  const categories = useCategories(currentId)
+  const { items: categories } = useCategories(currentId)
 
   const currentMonth = monthFilter
 
@@ -58,7 +60,7 @@ export default function TransactionsPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
@@ -87,18 +89,25 @@ export default function TransactionsPage() {
 
       <main id="main-content" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-4">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Receipt className="h-4 w-4" aria-hidden="true" /> All Transactions
             </CardTitle>
+            <Link
+              href="/reports"
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <BarChart2 className="h-3.5 w-3.5" />
+              Reports
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
               <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <select
                 value={accountFilter}
                 onChange={(e) => setAccountFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[100px] max-w-[140px] rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by account"
               >
                 <option value="">All accounts</option>
@@ -109,7 +118,7 @@ export default function TransactionsPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[100px] max-w-[140px] rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by category"
               >
                 <option value="">All categories</option>
@@ -121,13 +130,13 @@ export default function TransactionsPage() {
                 type="month"
                 value={monthFilter}
                 onChange={(e) => setMonthFilter(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+                className="h-8 shrink-0 min-w-[130px] rounded-lg border border-input bg-background px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 aria-label="Filter by month"
               />
               {(accountFilter || categoryFilter || monthFilter) && (
                 <button
                   onClick={() => { setAccountFilter(""); setCategoryFilter(""); setMonthFilter("") }}
-                  className="h-8 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="h-8 shrink-0 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Clear
                 </button>

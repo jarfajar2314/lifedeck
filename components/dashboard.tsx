@@ -25,6 +25,7 @@ import { toast } from "sonner"
 import { uid } from "@/lib/uid"
 import * as store from "@/lib/data-store"
 import { matchCategory } from "@/lib/categories"
+import { LifeDeckLogo } from "@/components/lifedeck-logo"
 import type { Account } from "@/lib/db"
 
 export function Dashboard() {
@@ -37,7 +38,7 @@ export function Dashboard() {
   useRealtime()
 
   const { items: accounts, loading: accountsLoading } = useAccounts(currentId)
-  const categories = useCategories(currentId)
+  const { items: categories } = useCategories(currentId)
   const categoryKeywords = useCategoryKeywords(currentId)
   const keywordMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -185,7 +186,7 @@ export function Dashboard() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <img src="/lifedeck.svg" alt="LifeDeck" width={24} height={24} className="shrink-0 text-foreground" />
+            <LifeDeckLogo />
             <SpaceSelector
               spaces={spaces}
               currentId={currentId}
