@@ -2,7 +2,7 @@ import { getAuth } from "@/lib/auth"
 import { getPool } from "@/lib/pool"
 
 const COL_MAP: Record<string, Record<string, string>> = {
-  transactions: { spaceId: "space_id", createdBy: "created_by", accountId: "account_id", categoryId: "category_id", loggedAt: "logged_at", createdAt: "created_at", creatorName: "creator_name" },
+  transactions: { spaceId: "space_id", createdBy: "created_by", accountId: "account_id", categoryId: "category_id", loggedAt: "logged_at", createdAt: "created_at", creatorName: "creator_name", transferPairId: "transfer_pair_id", transferDirection: "transfer_direction" },
   tasks: { spaceId: "space_id", createdBy: "created_by", assignedTo: "assigned_to", isCompleted: "is_completed", dueDate: "due_date", completedAt: "completed_at", createdAt: "created_at" },
   notes: { spaceId: "space_id", createdBy: "created_by", isPinned: "is_pinned", createdAt: "created_at", updatedAt: "updated_at" },
   spaces: { inviteCode: "invite_code", createdAt: "created_at" },

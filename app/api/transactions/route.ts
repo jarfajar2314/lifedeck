@@ -1,6 +1,7 @@
 import { query, getPool } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, toCamel, coerceNumeric, errorResponse, successResponse, toSnake } from "@/lib/api-utils"
 import { sseManager } from "@/lib/sse-manager"
+import { getTransactionSign } from "@/lib/transaction-math"
 
 const TABLE = "transactions"
 
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
     const txType = body.type as string
     const txAmount = Number(body.amount) || 0
     const accountId = body.accountId as string | undefined
+    const txDirection = body.transferDirection as string | undefined
 
     await client.query("BEGIN")
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
     await client.query(`INSERT INTO "${TABLE}" (${cols.join(", ")}) VALUES (${ph.join(", ")}) ON CONFLICT (id) DO UPDATE SET ${updates}`, vals)
 
     if (accountId && txAmount > 0) {
-      const sign = txType === "expense" || txType === "transfer" ? -1 : txType === "income" ? 1 : 0
+      const sign = getTransactionSign(txType, txDirection)
       if (sign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,

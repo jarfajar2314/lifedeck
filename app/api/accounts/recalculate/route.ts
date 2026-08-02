@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, errorResponse } from "@/lib/api-utils"
+import { getTransactionSign } from "@/lib/transaction-math"
 
 export async function POST(request: Request) {
   try {
@@ -16,12 +17,12 @@ export async function POST(request: Request) {
     await pool.query(`UPDATE public.accounts SET balance = 0 WHERE space_id = $1`, [spaceId])
 
     const { rows: txs } = await pool.query(
-      `SELECT account_id, amount, type FROM public.transactions WHERE space_id = $1 AND account_id IS NOT NULL`,
+      `SELECT account_id, amount, type, transfer_direction FROM public.transactions WHERE space_id = $1 AND account_id IS NOT NULL`,
       [spaceId]
     )
 
     for (const tx of txs) {
-      const sign = tx.type === "expense" || tx.type === "transfer" ? -1 : tx.type === "income" ? 1 : 0
+      const sign = getTransactionSign(tx.type, tx.transfer_direction)
       if (sign !== 0 && tx.account_id) {
         await pool.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,

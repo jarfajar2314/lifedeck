@@ -6,13 +6,15 @@ import { useTransactions } from "@/hooks/use-db"
 import { cn } from "@/lib/utils"
 import { TransactionDetail } from "@/components/transaction-detail"
 import { Skeleton } from "@/components/ui/skeleton"
-import { WalletMinimal } from "lucide-react"
+import { WalletMinimal, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { CategoryBadge } from "@/components/category-badge"
 import { AccountBadge } from "@/components/account-badge"
 import * as Phosphor from "@phosphor-icons/react"
 import { type Transaction, type Account, type Category } from "@/lib/db"
+import { isInflow } from "@/lib/transaction-math"
+import { toast } from "sonner"
 
 type MergedTransfer = {
   isMerged: true
@@ -44,6 +46,18 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [selectedTransfer, setSelectedTransfer] = useState<MergedTransfer | null>(null)
+  const [confirmDeleteTransfer, setConfirmDeleteTransfer] = useState(false)
+  const [deletingTransfer, setDeletingTransfer] = useState(false)
+
+  async function handleDeleteTransfer() {
+    if (!selectedTransfer) return
+    setDeletingTransfer(true)
+    await Promise.all([remove(selectedTransfer.sourceTxId), remove(selectedTransfer.targetTxId)])
+    toast("Transfer deleted")
+    setDeletingTransfer(false)
+    setConfirmDeleteTransfer(false)
+    setSelectedTransfer(null)
+  }
 
   const accountMap = new Map(accounts.map((a) => [a.id, a]))
   const categoryMap = new Map(categories.map((c) => [c.id, c]))
@@ -72,29 +86,27 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
 
     for (const tx of filtered) {
       if (paired.has(tx.id)) continue
-      if (tx.type === "transfer") {
+      if (tx.type === "transfer" && tx.transferPairId) {
         const match = filtered.find(
-          (t) => t.id !== tx.id
-            && !paired.has(t.id)
-            && t.type === "income"
-            && t.amount === tx.amount
-            && Math.abs(new Date(t.loggedAt).getTime() - new Date(tx.loggedAt).getTime()) < 2000
+          (t) => t.id !== tx.id && !paired.has(t.id) && t.transferPairId === tx.transferPairId
         )
         if (match) {
           paired.add(tx.id)
           paired.add(match.id)
+          const outLeg = tx.transferDirection === "out" ? tx : match
+          const inLeg = tx.transferDirection === "out" ? match : tx
           merged.push({
             isMerged: true,
-            id: tx.id,
-            sourceId: tx.accountId ?? "",
-            targetId: match.accountId ?? "",
-            amount: tx.amount,
-            fromName: accountMap.get(tx.accountId ?? "")?.name ?? "?",
-            toName: accountMap.get(match.accountId ?? "")?.name ?? "?",
-            note: tx.note?.replace(/^Transfer to /, "") || "Transfer",
-            loggedAt: tx.loggedAt,
-            sourceTxId: tx.id,
-            targetTxId: match.id,
+            id: outLeg.id,
+            sourceId: outLeg.accountId ?? "",
+            targetId: inLeg.accountId ?? "",
+            amount: outLeg.amount,
+            fromName: accountMap.get(outLeg.accountId ?? "")?.name ?? "?",
+            toName: accountMap.get(inLeg.accountId ?? "")?.name ?? "?",
+            note: outLeg.note?.replace(/^Transfer to /, "") || "Transfer",
+            loggedAt: outLeg.loggedAt,
+            sourceTxId: outLeg.id,
+            targetTxId: inLeg.id,
           })
           continue
         }
@@ -103,11 +115,11 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
     }
 
     const expenses = filtered
-      .filter((t) => t.type === "expense" || (accountFilter && t.type === "transfer"))
+      .filter((t) => t.type === "expense" || (accountFilter && t.type === "transfer" && !isInflow(t.type, t.transferDirection)))
       .reduce((sum, t) => sum + t.amount, 0)
 
     const income = filtered
-      .filter((t) => t.type === "income" && (Boolean(accountFilter) || !paired.has(t.id)))
+      .filter((t) => t.type === "income" || (accountFilter && t.type === "transfer" && isInflow(t.type, t.transferDirection)))
       .reduce((sum, t) => sum + t.amount, 0)
 
     const sliced = limit ? merged.slice(0, limit) : merged
@@ -219,6 +231,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
               const tx = row as Transaction
               const cat = tx.categoryId ? categoryMap.get(tx.categoryId) : undefined
               const catColor = cat?.color
+              const inflow = tx.type === "income" || (tx.type === "transfer" && isInflow(tx.type, tx.transferDirection))
 
               return (
                 <motion.li
@@ -238,9 +251,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                         className={cn(
                           "flex h-8 w-8 items-center justify-center rounded-full",
                           !catColor && (
-                            tx.type === "expense" ? "bg-destructive/10 text-destructive"
-                              : tx.type === "income" ? "bg-success/10 text-success"
-                              : "bg-muted text-muted-foreground"
+                            tx.type === "transfer" ? "bg-muted text-muted-foreground"
+                              : inflow ? "bg-success/10 text-success"
+                              : "bg-destructive/10 text-destructive"
                           )
                         )}
                         style={catColor ? { backgroundColor: `${catColor}20`, color: catColor } : undefined}
@@ -254,7 +267,7 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                               if (Icon) return <Icon weight="duotone" className="h-4 w-4" />
                             }
                           }
-                          return tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+                          return tx.type === "transfer" ? "↔" : inflow ? "↑" : "↓"
                         })()}
                       </div>
                       <div className="text-left">
@@ -272,9 +285,9 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
                     </div>
                     <span className={cn(
                       "text-sm font-semibold tabular-nums",
-                      (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
+                      inflow ? "text-success" : "text-destructive"
                     )}>
-                      {tx.type === "income" ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
+                      {inflow ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
                     </span>
                   </button>
                 </motion.li>
@@ -294,28 +307,47 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
         accounts={accounts}
       />
 
-      <Sheet open={selectedTransfer !== null} onOpenChange={(v) => { if (!v) setSelectedTransfer(null) }}>
+      <Sheet open={selectedTransfer !== null} onOpenChange={(v) => { if (!v) { setSelectedTransfer(null); setConfirmDeleteTransfer(false) } }}>
         <SheetContent side="bottom" aria-label="Transfer detail">
           <SheetHeader>
             <SheetTitle>Transfer</SheetTitle>
             <SheetDescription>Transfer between accounts.</SheetDescription>
           </SheetHeader>
           {selectedTransfer && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">↔</div>
-              <span className="text-2xl font-bold tabular-nums">Rp{selectedTransfer.amount.toLocaleString("id-ID")}</span>
-              <div className="text-center text-sm font-medium">{selectedTransfer.note}</div>
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span>@{selectedTransfer.fromName}</span>
-                <span>→</span>
-                <span>@{selectedTransfer.toName}</span>
+            confirmDeleteTransfer ? (
+              <div className="flex flex-col gap-4 p-4 pt-0">
+                <p className="text-sm">
+                  Delete this transfer of <strong>Rp{selectedTransfer.amount.toLocaleString("id-ID")}</strong> between <strong>{selectedTransfer.fromName}</strong> and <strong>{selectedTransfer.toName}</strong>?
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setConfirmDeleteTransfer(false)} disabled={deletingTransfer}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" className="flex-1" onClick={handleDeleteTransfer} disabled={deletingTransfer}>
+                    <Trash2Icon /> {deletingTransfer ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
               </div>
-              <div className="text-center text-xs text-muted-foreground">
-                <time dateTime={new Date(selectedTransfer.loggedAt).toISOString()}>
-                  {new Date(selectedTransfer.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                </time>
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">↔</div>
+                <span className="text-2xl font-bold tabular-nums">Rp{selectedTransfer.amount.toLocaleString("id-ID")}</span>
+                <div className="text-center text-sm font-medium">{selectedTransfer.note}</div>
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <span>@{selectedTransfer.fromName}</span>
+                  <span>→</span>
+                  <span>@{selectedTransfer.toName}</span>
+                </div>
+                <div className="text-center text-xs text-muted-foreground">
+                  <time dateTime={new Date(selectedTransfer.loggedAt).toISOString()}>
+                    {new Date(selectedTransfer.loggedAt).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  </time>
+                </div>
+                <Button variant="destructive" size="sm" className="mt-2 w-full" onClick={() => setConfirmDeleteTransfer(true)}>
+                  <Trash2Icon /> Delete Transfer
+                </Button>
               </div>
-            </div>
+            )
           )}
         </SheetContent>
       </Sheet>
