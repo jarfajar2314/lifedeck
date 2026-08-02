@@ -14,6 +14,7 @@ import { AccountBadge } from "@/components/account-badge"
 import * as Phosphor from "@phosphor-icons/react"
 import { type Transaction, type Account, type Category } from "@/lib/db"
 import { isInflow } from "@/lib/transaction-math"
+import { type DateRange, dayBucketLabel, formatRangeLabel } from "@/lib/date-filter"
 import { toast } from "sonner"
 
 type MergedTransfer = {
@@ -30,7 +31,13 @@ type MergedTransfer = {
   targetTxId: string
 }
 
-type RowItem = Transaction | MergedTransfer
+type DateHeader = {
+  isHeader: true
+  id: string
+  label: string
+}
+
+type RowItem = Transaction | MergedTransfer | DateHeader
 
 type TransactionListProps = {
   spaceId: string
@@ -39,10 +46,11 @@ type TransactionListProps = {
   categories: Category[]
   accountFilter?: string
   categoryFilter?: string
-  monthFilter?: string
+  dateRange?: DateRange
+  groupByDate?: boolean
 }
 
-export function TransactionList({ spaceId, limit, accounts, categories, accountFilter, categoryFilter, monthFilter }: TransactionListProps) {
+export function TransactionList({ spaceId, limit, accounts, categories, accountFilter, categoryFilter, dateRange, groupByDate }: TransactionListProps) {
   const { items, loading, update, remove } = useTransactions(spaceId)
   const [selected, setSelected] = useState<Transaction | null>(null)
   const [selectedTransfer, setSelectedTransfer] = useState<MergedTransfer | null>(null)
@@ -73,16 +81,17 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
       filtered = filtered.filter((t) => t.categoryId === categoryFilter)
     }
 
-    if (monthFilter) {
+    if (dateRange) {
+      const from = dateRange.from.getTime()
+      const to = dateRange.to.getTime()
       filtered = filtered.filter((t) => {
-        const d = new Date(t.loggedAt)
-        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-        return ym === monthFilter
+        const ts = new Date(t.loggedAt).getTime()
+        return ts >= from && ts <= to
       })
     }
 
     const paired = new Set<string>()
-    const merged: RowItem[] = []
+    const merged: Array<Transaction | MergedTransfer> = []
 
     for (const tx of filtered) {
       if (paired.has(tx.id)) continue
@@ -123,13 +132,28 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
       .reduce((sum, t) => sum + t.amount, 0)
 
     const sliced = limit ? merged.slice(0, limit) : merged
+
+    let withHeaders: RowItem[] = sliced
+    if (groupByDate) {
+      withHeaders = []
+      let lastLabel: string | null = null
+      for (const row of sliced) {
+        const label = dayBucketLabel(new Date(row.loggedAt))
+        if (label !== lastLabel) {
+          withHeaders.push({ isHeader: true, id: `header-${label}-${row.id}`, label })
+          lastLabel = label
+        }
+        withHeaders.push(row)
+      }
+    }
+
     return {
-      displayed: sliced,
+      displayed: withHeaders,
       hasMore: limit ? merged.length > limit : false,
       totalExpenses: expenses,
       totalIncome: income,
     }
-  }, [items, accountMap, limit, accountFilter, categoryFilter, monthFilter])
+  }, [items, accountMap, limit, accountFilter, categoryFilter, dateRange, groupByDate])
 
   if (loading) {
     return (
@@ -148,16 +172,21 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
     )
   }
 
+  const hasFilters = Boolean(accountFilter || categoryFilter || dateRange !== undefined)
+
   if (displayed.length === 0) {
+    const filterParts = [
+      dateRange !== undefined && formatRangeLabel(dateRange),
+      accountFilter && accountMap.get(accountFilter)?.name,
+      categoryFilter && categoryMap.get(categoryFilter)?.name,
+    ].filter((p): p is string => Boolean(p))
     return (
       <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
         <WalletMinimal className="h-5 w-5 opacity-50" aria-hidden="true" />
-        <p>No transactions yet</p>
+        <p>{filterParts.length > 0 ? `No transactions for ${filterParts.join(", ")}` : "No transactions yet"}</p>
       </div>
     )
   }
-
-  const hasFilters = Boolean(accountFilter || categoryFilter || monthFilter)
 
   return (
     <>
@@ -193,6 +222,18 @@ export function TransactionList({ spaceId, limit, accounts, categories, accountF
         <ul className="flex flex-col gap-0.5" aria-label="Transaction list">
           <AnimatePresence initial={false}>
             {displayed.map((row, i) => {
+              if ("isHeader" in row) {
+                return (
+                  <motion.li
+                    key={row.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="px-2 pt-3 pb-1 text-xs font-semibold text-muted-foreground first:pt-1"
+                  >
+                    {row.label}
+                  </motion.li>
+                )
+              }
               if ("isMerged" in row) {
                 return (
                   <motion.li
