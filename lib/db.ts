@@ -57,6 +57,8 @@ export interface Transaction {
   amount: number
   type: "expense" | "income" | "transfer"
   note?: string
+  transferPairId?: string | null
+  transferDirection?: "in" | "out" | null
   loggedAt: Date
   createdAt: Date
 }

@@ -12,6 +12,7 @@ import { CategoryBadge } from "@/components/category-badge"
 import { AccountBadge } from "@/components/account-badge"
 import * as Phosphor from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
+import { isInflow } from "@/lib/transaction-math"
 
 type TransactionDetailProps = {
   transaction: Transaction | null
@@ -71,10 +72,11 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
 
   const cat = tx.categoryId ? categories?.find((c) => c.id === tx.categoryId) : undefined
   const catColor = cat?.color
+  const inflow = tx.type === "income" || (tx.type === "transfer" && isInflow(tx.type, tx.transferDirection))
   const indicatorClass = !catColor ? (
-    tx.type === "expense" ? "bg-destructive/10 text-destructive"
-      : tx.type === "income" ? "bg-success/10 text-success"
-      : "bg-muted text-muted-foreground"
+    tx.type === "transfer" ? "bg-muted text-muted-foreground"
+      : inflow ? "bg-success/10 text-success"
+      : "bg-destructive/10 text-destructive"
   ) : ""
   const indicatorIcon = (() => {
     if (cat) {
@@ -84,7 +86,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
         if (Icon) return <Icon weight="duotone" className="h-5 w-5" />
       }
     }
-    return tx.type === "expense" ? "↓" : tx.type === "income" ? "↑" : "↔"
+    return tx.type === "transfer" ? "↔" : inflow ? "↑" : "↓"
   })()
 
   const loggedDate = new Date(tx.loggedAt)
@@ -202,8 +204,8 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               >
                 {indicatorIcon}
               </div>
-              <span className={cn("text-2xl font-bold tabular-nums", tx.type === "expense" && "text-destructive", tx.type === "income" && "text-success")}>
-                {tx.type === "expense" ? "-" : "+"}Rp{tx.amount.toLocaleString("id-ID")}
+              <span className={cn("text-2xl font-bold tabular-nums", inflow ? "text-success" : "text-destructive")}>
+                {inflow ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
               </span>
             </div>
             {tx.note && (

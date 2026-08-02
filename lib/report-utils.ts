@@ -1,4 +1,5 @@
 import type { Transaction, Account, Category } from "@/lib/db"
+import { isInflow } from "@/lib/transaction-math"
 
 export interface PeriodData {
   label: string
@@ -120,7 +121,7 @@ export function groupByCategory(txs: Transaction[], categories: Category[]): Cat
 
 /**
  * Per-account income/expense/net.
- * Includes transfers: transfer-out = expense, transfer-in (type="income" paired) = income.
+ * Includes transfers: an "in" leg counts as income, an "out" leg as expense.
  */
 export function groupByAccount(txs: Transaction[], accounts: Account[]): AccountData[] {
   const result: AccountData[] = []
@@ -131,7 +132,10 @@ export function groupByAccount(txs: Transaction[], accounts: Account[]): Account
       if (t.accountId !== acc.id) continue
       if (t.type === "expense") expenses += t.amount
       else if (t.type === "income") income += t.amount
-      else if (t.type === "transfer") expenses += t.amount
+      else if (t.type === "transfer") {
+        if (isInflow(t.type, t.transferDirection)) income += t.amount
+        else expenses += t.amount
+      }
     }
     result.push({
       accountId: acc.id,

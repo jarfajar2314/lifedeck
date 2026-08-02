@@ -141,8 +141,9 @@ export function Dashboard() {
       return
     }
     const now = new Date()
-    await addTransaction({ spaceId: currentId, amount, type: "transfer", accountId: from.id, note: note || `Transfer to ${to.name}`, loggedAt: now, createdBy: user?.id })
-    await addTransaction({ spaceId: currentId, amount, type: "income", accountId: to.id, note: note || `Transfer from ${from.name}`, loggedAt: now, createdBy: user?.id })
+    const pairId = crypto.randomUUID()
+    await addTransaction({ spaceId: currentId, amount, type: "transfer", transferPairId: pairId, transferDirection: "out", accountId: from.id, note: note || `Transfer to ${to.name}`, loggedAt: now, createdBy: user?.id })
+    await addTransaction({ spaceId: currentId, amount, type: "transfer", transferPairId: pairId, transferDirection: "in", accountId: to.id, note: note || `Transfer from ${from.name}`, loggedAt: now, createdBy: user?.id })
     haptics.success()
     toast(`Transfer: Rp${amount.toLocaleString("id-ID")} @${from.name} → @${to.name}`)
   }, [currentId, user?.id, resolveAccount, addTransaction])

@@ -1,6 +1,7 @@
 import { query, getPool } from "@/lib/pool"
 import { requireAuth, requireSpaceAccess, toCamel, coerceNumeric, errorResponse, successResponse, toSnake } from "@/lib/api-utils"
 import { sseManager } from "@/lib/sse-manager"
+import { getTransactionSign } from "@/lib/transaction-math"
 
 const TABLE = "transactions"
 
@@ -12,7 +13,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params
     const body: Record<string, unknown> = await request.json()
 
-    const existing = await query(`SELECT space_id, account_id, amount, type FROM "${TABLE}" WHERE id = $1`, [id])
+    const existing = await query(`SELECT space_id, account_id, amount, type, transfer_direction FROM "${TABLE}" WHERE id = $1`, [id])
     if (existing.length === 0) return Response.json({ error: "Not found" }, { status: 404 })
     await requireSpaceAccess(userId, existing[0].space_id as string)
 
@@ -33,8 +34,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const oldAccountId = oldRow.account_id as string | undefined
     const oldAmount = Number(oldRow.amount) || 0
     const oldType = oldRow.type as string
+    const oldDirection = oldRow.transfer_direction as string | undefined
     if (oldAccountId && oldAmount > 0) {
-      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : oldType === "transfer" ? 1 : 0
+      const oldSign = -getTransactionSign(oldType, oldDirection)
       if (oldSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
@@ -47,8 +49,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newAccountId = body.accountId as string | undefined
     const newAmount = Number(body.amount) || 0
     const newType = body.type as string
+    const newDirection = body.transferDirection as string | undefined
     if (newAccountId && newAmount > 0) {
-      const newSign = newType === "expense" || newType === "transfer" ? -1 : newType === "income" ? 1 : 0
+      const newSign = getTransactionSign(newType, newDirection)
       if (newSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,
@@ -75,7 +78,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const userId = await requireAuth(request)
     const { id } = await params
 
-    const existing = await query(`SELECT space_id, account_id, amount, type FROM "${TABLE}" WHERE id = $1`, [id])
+    const existing = await query(`SELECT space_id, account_id, amount, type, transfer_direction FROM "${TABLE}" WHERE id = $1`, [id])
     if (existing.length === 0) return Response.json({ error: "Not found" }, { status: 404 })
     await requireSpaceAccess(userId, existing[0].space_id as string)
 
@@ -89,8 +92,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const oldAccountId = oldRow.account_id as string | undefined
     const oldAmount = Number(oldRow.amount) || 0
     const oldType = oldRow.type as string
+    const oldDirection = oldRow.transfer_direction as string | undefined
     if (oldAccountId && oldAmount > 0) {
-      const oldSign = oldType === "expense" ? 1 : oldType === "income" ? -1 : oldType === "transfer" ? 1 : 0
+      const oldSign = -getTransactionSign(oldType, oldDirection)
       if (oldSign !== 0) {
         await client.query(
           `UPDATE public.accounts SET balance = balance + ($1::numeric * $2::numeric) WHERE id = $3`,

@@ -11,6 +11,7 @@ import { Pencil, Check, X, Plus, ArrowRightFromLine, Wallet } from "lucide-react
 import { AccountBadge } from "@/components/account-badge"
 import { cn } from "@/lib/utils"
 import * as store from "@/lib/data-store"
+import { isInflow } from "@/lib/transaction-math"
 import type { Account } from "@/lib/db"
 
 type AccountDetailProps = {
@@ -74,8 +75,9 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
     const target = accounts.find((a) => a.id === transferTargetId)
     if (!target) return
     const now = new Date()
-    await addTransaction({ spaceId, amount, type: "expense", accountId: acc.id, note: transferNote || `Transfer to ${target.name}`, loggedAt: now })
-    await addTransaction({ spaceId, amount, type: "income", accountId: target.id, note: transferNote || `Transfer from ${acc.name}`, loggedAt: now })
+    const pairId = crypto.randomUUID()
+    await addTransaction({ spaceId, amount, type: "transfer", transferPairId: pairId, transferDirection: "out", accountId: acc.id, note: transferNote || `Transfer to ${target.name}`, loggedAt: now })
+    await addTransaction({ spaceId, amount, type: "transfer", transferPairId: pairId, transferDirection: "in", accountId: target.id, note: transferNote || `Transfer from ${acc.name}`, loggedAt: now })
     store.patchCache("accounts", spaceId, acc.id, { balance: acc.balance - amount })
     store.patchCache("accounts", spaceId, target.id, { balance: target.balance + amount })
     setTransferAmount("")
@@ -215,25 +217,22 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
               <p className="text-sm text-muted-foreground py-2">No transactions yet</p>
             ) : (
               <div className="flex flex-col gap-0.5">
-                {accountTxs.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "text-xs font-bold",
-                        (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
-                      )}>
-                        {tx.type === "income" ? "↑" : "↓"}
+                {accountTxs.map((tx) => {
+                  const inflow = tx.type === "income" || (tx.type === "transfer" && isInflow(tx.type, tx.transferDirection))
+                  return (
+                    <div key={tx.id} className="flex items-center justify-between rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("text-xs font-bold", inflow ? "text-success" : "text-destructive")}>
+                          {tx.type === "transfer" ? "↔" : inflow ? "↑" : "↓"}
+                        </span>
+                        <span className="text-sm">{tx.note || "Untitled"}</span>
+                      </div>
+                      <span className={cn("text-sm font-semibold tabular-nums", inflow ? "text-success" : "text-destructive")}>
+                        {inflow ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
                       </span>
-                      <span className="text-sm">{tx.note || "Untitled"}</span>
                     </div>
-                    <span className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      (tx.type === "expense" || tx.type === "transfer") ? "text-destructive" : "text-success"
-                    )}>
-                      {tx.type === "income" ? "+" : "-"}Rp{tx.amount.toLocaleString("id-ID")}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>
