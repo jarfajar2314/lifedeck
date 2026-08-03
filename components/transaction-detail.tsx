@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,12 +35,18 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   const [note, setNote] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
 
-  if (!transaction) return null
-  const tx = transaction
+  // Keep rendering the last-selected transaction while the sheet plays its
+  // close animation — clearing this to null the instant `transaction` does
+  // would unmount the Sheet mid-transition and cut the animation short.
+  const [tx, setTx] = useState<Transaction | null>(null)
+  useEffect(() => {
+    if (transaction) setTx(transaction)
+  }, [transaction])
 
-  const typeLabel = tx.type === "expense" ? "Expense" : tx.type === "income" ? "Income" : "Transfer"
+  const typeLabel = tx ? (tx.type === "expense" ? "Expense" : tx.type === "income" ? "Income" : "Transfer") : ""
 
   function startEdit() {
+    if (!tx) return
     setType(tx.type)
     setAmount(tx.amount.toString())
     setNote(tx.note ?? "")
@@ -50,6 +56,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   }
 
   async function handleSave() {
+    if (!tx) return
     const parsed = Number.parseFloat(amount)
     if (Number.isNaN(parsed) || parsed <= 0) {
       toast("Amount must be a positive number")
@@ -63,6 +70,7 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
   }
 
   async function handleDelete() {
+    if (!tx) return
     setDeleting(true)
     await onDelete(tx.id)
     toast("Transaction deleted")
@@ -70,11 +78,11 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
     onOpenChange(false)
   }
 
-  const cat = tx.categoryId ? categories?.find((c) => c.id === tx.categoryId) : undefined
+  const cat = tx?.categoryId ? categories?.find((c) => c.id === tx.categoryId) : undefined
   const catColor = cat?.color
-  const inflow = tx.type === "income" || (tx.type === "transfer" && isInflow(tx.type, tx.transferDirection))
+  const inflow = !!tx && (tx.type === "income" || (tx.type === "transfer" && isInflow(tx.type, tx.transferDirection)))
   const indicatorClass = !catColor ? (
-    tx.type === "transfer" ? "bg-muted text-muted-foreground"
+    tx?.type === "transfer" ? "bg-muted text-muted-foreground"
       : inflow ? "bg-success/10 text-success"
       : "bg-destructive/10 text-destructive"
   ) : ""
@@ -86,16 +94,18 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
         if (Icon) return <Icon weight="duotone" className="h-5 w-5" />
       }
     }
-    return tx.type === "transfer" ? "↔" : inflow ? "↑" : "↓"
+    return tx?.type === "transfer" ? "↔" : inflow ? "↑" : "↓"
   })()
 
-  const loggedDate = new Date(tx.loggedAt)
+  const loggedDate = new Date(tx?.loggedAt ?? 0)
   const formattedDate = loggedDate.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
   const formattedTime = loggedDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setEditing(false); setConfirmDelete(false) } }}>
       <SheetContent side="bottom" aria-label="Transaction detail">
+        {tx && (
+        <>
         <SheetHeader>
           <SheetTitle>{editing ? "Edit Transaction" : typeLabel}</SheetTitle>
           {!editing && <SheetDescription>View transaction details.</SheetDescription>}
@@ -237,6 +247,8 @@ export function TransactionDetail({ transaction, open, onOpenChange, onUpdate, o
               </Button>
             </div>
           </div>
+        )}
+        </>
         )}
       </SheetContent>
     </Sheet>

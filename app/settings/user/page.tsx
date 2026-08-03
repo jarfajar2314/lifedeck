@@ -92,7 +92,7 @@ export default function UserSettingsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
+              className="flex h-12 w-12 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -132,11 +132,11 @@ export default function UserSettingsPage() {
                 />
                 {nameDirty && (
                   <>
-                    <button onClick={handleSaveName} disabled={savingName} className="flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-secondary">
-                      <Check className="h-3.5 w-3.5" />
+                    <button onClick={handleSaveName} disabled={savingName} className="flex h-12 w-12 items-center justify-center rounded-lg text-success hover:bg-secondary">
+                      <Check className="h-4 w-4" />
                     </button>
-                    <button onClick={() => { setDisplayName(user?.name || ""); setNameDirty(false) }} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
-                      <X className="h-3.5 w-3.5" />
+                    <button onClick={() => { setDisplayName(user?.name || ""); setNameDirty(false) }} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
+                      <X className="h-4 w-4" />
                     </button>
                   </>
                 )}

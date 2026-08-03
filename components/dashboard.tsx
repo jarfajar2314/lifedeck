@@ -203,7 +203,7 @@ export function Dashboard() {
               className="flex items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Open settings"
               title="Settings"
-              style={{ width: 44, height: 44 }}
+              style={{ width: 48, height: 48 }}
             >
               <Avatar size="sm">
                 <AvatarFallback className="text-foreground font-bold text-sm">
@@ -231,7 +231,7 @@ export function Dashboard() {
                 </Link>
                 <button
                   onClick={() => setKeypadOpen(true)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
+                  className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent-color/10 text-accent-color hover:bg-accent-color/20"
                   aria-label="Add expense"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />

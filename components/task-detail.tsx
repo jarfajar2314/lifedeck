@@ -20,18 +20,21 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   const [title, setTitle] = useState("")
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium")
   const [saving, setSaving] = useState(false)
+  // Keep rendering the last-selected task while the sheet plays its close
+  // animation — clearing this to null the instant `task` does would unmount
+  // the Sheet mid-transition and cut the animation short.
+  const [t, setT] = useState<Task | null>(null)
 
   useEffect(() => {
     if (!task) return
     setTitle(task.title)
     setPriority(task.priority)
     setSaving(false)
+    setT(task)
   }, [task?.id, task?.title, task?.priority])
 
-  if (!task) return null
-  const t = task
-
   async function handleSave() {
+    if (!t) return
     if (!title.trim()) {
       toast("Title is required")
       return
@@ -44,6 +47,7 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   }
 
   async function handleDelete() {
+    if (!t) return
     await onDelete(t.id)
     toast("Task deleted")
     onOpenChange(false)
@@ -53,6 +57,8 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-label="Edit task">
+        {t && (
+        <>
         <SheetHeader>
           <SheetTitle>Edit Task</SheetTitle>
         </SheetHeader>
@@ -94,6 +100,8 @@ export function TaskDetail({ task, open, onOpenChange, onUpdate, onDelete }: Tas
             </Button>
           </div>
         </div>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   )

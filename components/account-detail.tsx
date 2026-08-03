@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,18 +35,25 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
   const [transferNote, setTransferNote] = useState("")
 
   const liveAccount = accounts.find((a) => a.id === account?.id) || account
-  if (!liveAccount) return null
 
-  const acc = liveAccount
+  // Keep rendering the last-selected account while the drawer plays its
+  // close animation — clearing this to null the instant `account` does
+  // would unmount the Drawer mid-transition and cut the animation short.
+  const [acc, setAcc] = useState<Account | null>(null)
+  useEffect(() => {
+    if (liveAccount) setAcc(liveAccount)
+  }, [liveAccount])
 
-  const otherAccounts = accounts.filter((a) => a.id !== acc.id)
-  const accountTxs = allTxs
-    .filter((t) => t.accountId === acc.id)
-    .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
-    .slice(0, 10)
+  const otherAccounts = acc ? accounts.filter((a) => a.id !== acc.id) : []
+  const accountTxs = acc
+    ? allTxs
+        .filter((t) => t.accountId === acc.id)
+        .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
+        .slice(0, 10)
+    : []
 
   async function handleSaveName() {
-    if (!editName.trim()) return
+    if (!acc || !editName.trim()) return
     await store.persist("accounts", "update", { name: editName.trim() }, acc.id)
     store.invalidate(["accounts"])
     setEditing(false)
@@ -54,11 +61,13 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
   }
 
   function startEditing() {
+    if (!acc) return
     setEditName(acc.name)
     setEditing(true)
   }
 
   async function handleAddIncome() {
+    if (!acc) return
     const amount = parseFloat(incomeAmount.replace(/,/g, ""))
     if (isNaN(amount) || amount <= 0) return
     await addTransaction({ spaceId, amount, type: "income", accountId: acc.id, note: incomeNote || undefined, loggedAt: new Date() })
@@ -70,6 +79,7 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
   }
 
   async function handleTransfer() {
+    if (!acc) return
     const amount = parseFloat(transferAmount.replace(/,/g, ""))
     if (isNaN(amount) || amount <= 0 || !transferTargetId) return
     const target = accounts.find((a) => a.id === transferTargetId)
@@ -90,6 +100,8 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent aria-label="Account detail">
+        {acc && (
+        <>
         <DrawerHeader>
           <DrawerTitle className="flex items-center gap-2">
             <Wallet className="h-4 w-4" />
@@ -102,10 +114,10 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
                   autoFocus
                   onKeyDown={(e) => { if (e.key === "Enter") handleSaveName() }}
                 />
-                <button onClick={handleSaveName} className="flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-secondary">
+                <button onClick={handleSaveName} className="flex h-12 w-12 items-center justify-center rounded-lg text-success hover:bg-secondary">
                   <Check className="h-4 w-4" />
                 </button>
-                <button onClick={() => setEditing(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
+                <button onClick={() => setEditing(false)} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -113,8 +125,8 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
               <div className="flex items-center gap-2 flex-1">
                 <AccountBadge account={acc} />
                 <span>{acc.name}</span>
-                <button onClick={startEditing} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
-                  <Pencil className="h-3.5 w-3.5" />
+                <button onClick={startEditing} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary">
+                  <Pencil className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -237,6 +249,8 @@ export function AccountDetail({ account, open, onOpenChange, accounts, spaceId }
             )}
           </section>
         </div>
+        </>
+        )}
       </DrawerContent>
     </Drawer>
   )

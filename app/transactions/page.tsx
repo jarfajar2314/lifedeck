@@ -114,7 +114,7 @@ function TransactionsPageContent() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
+                className="flex h-12 w-12 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
                 aria-label="Back"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -134,7 +134,7 @@ function TransactionsPageContent() {
                 onClick={() => setUserMenuOpen(true)}
                 className="flex items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
                 aria-label="Open settings"
-                style={{ width: 44, height: 44 }}
+                style={{ width: 48, height: 48 }}
               >
                 <Avatar size="sm">
                   <AvatarFallback className="text-foreground font-bold text-sm">

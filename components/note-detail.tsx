@@ -19,17 +19,20 @@ type NoteDetailProps = {
 export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTogglePin }: NoteDetailProps) {
   const [content, setContent] = useState("")
   const [saving, setSaving] = useState(false)
+  // Keep rendering the last-selected note while the sheet plays its close
+  // animation — clearing this to null the instant `note` does would unmount
+  // the Sheet mid-transition and cut the animation short.
+  const [n, setN] = useState<Note | null>(null)
 
   useEffect(() => {
     if (!note) return
     setContent(note.content)
     setSaving(false)
+    setN(note)
   }, [note?.id, note?.content])
 
-  if (!note) return null
-  const n = note
-
   async function handleSave() {
+    if (!n) return
     if (!content.trim()) {
       toast("Content is required")
       return
@@ -42,12 +45,14 @@ export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTog
   }
 
   async function handleDelete() {
+    if (!n) return
     await onDelete(n.id)
     toast("Note deleted")
     onOpenChange(false)
   }
 
   async function handleTogglePin() {
+    if (!n) return
     await onTogglePin(n.id)
     toast(n.isPinned ? "Note unpinned" : "Note pinned")
   }
@@ -55,6 +60,8 @@ export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTog
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" aria-label="Note detail">
+        {n && (
+        <>
         <SheetHeader>
           <SheetTitle>Edit Note</SheetTitle>
         </SheetHeader>
@@ -91,6 +98,8 @@ export function NoteDetail({ note, open, onOpenChange, onUpdate, onDelete, onTog
             </Button>
           </div>
         </div>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   )
