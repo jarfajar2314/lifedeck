@@ -7,6 +7,7 @@ import { useCategories, useCategoryKeywords } from "@/hooks/use-db"
 import { useSpaces } from "@/hooks/use-spaces"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Plus, Pencil, Trash2, X, Check, Palette, Loader2 } from "lucide-react"
@@ -172,7 +173,7 @@ export default function CategoryPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
+              className="flex h-12 w-12 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -292,15 +293,15 @@ export default function CategoryPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => startEdit(cat)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
+                        className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setConfirmDelete(cat)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -311,92 +312,88 @@ export default function CategoryPage() {
         </Card>
       </main>
 
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => !savingEdit && setEditing(null)} />
-          <div className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
+      <Drawer open={!!editing} onOpenChange={(o) => { if (!o && !savingEdit) setEditing(null) }}>
+        <DrawerContent aria-label="Edit category">
+          <div className="flex flex-col gap-3 p-6">
+            <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Edit Category</h3>
-              <button onClick={() => !savingEdit && setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary" disabled={savingEdit}>
+              <button onClick={() => !savingEdit && setEditing(null)} className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-secondary" disabled={savingEdit}>
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex flex-col gap-3">
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Category name" className="h-9 text-sm" disabled={savingEdit} />
-              <div className="flex flex-wrap gap-1.5">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setEditColor(c)}
-                    disabled={savingEdit}
-                    className="h-7 w-7 rounded-full border-2 transition-transform"
-                    style={{ backgroundColor: c, borderColor: editColor === c ? "var(--foreground)" : "transparent" }}
-                  />
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Category name" className="h-9 text-sm" disabled={savingEdit} />
+            <div className="flex flex-wrap gap-1.5">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setEditColor(c)}
+                  disabled={savingEdit}
+                  className="h-7 w-7 rounded-full border-2 transition-transform"
+                  style={{ backgroundColor: c, borderColor: editColor === c ? "var(--foreground)" : "transparent" }}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={savingEdit}
+              onClick={() => setIconBrowserFor("edit")}
+              className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {editIcon ? (
+                <>
+                  {(() => {
+                    const Icon = (Phosphor as any)[editIcon.charAt(0).toUpperCase() + editIcon.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
+                    return Icon ? <Icon weight="duotone" className="h-4 w-4 text-foreground" /> : null
+                  })()}
+                  <span>{editIcon}</span>
+                </>
+              ) : (
+                <span>Choose icon...</span>
+              )}
+            </button>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-muted-foreground">Keywords</p>
+              <div className="flex flex-wrap gap-1">
+                {keywordList.map((kw) => (
+                  <span key={kw} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs">
+                    {kw}
+                    <button onClick={() => removeKeyword(kw)} disabled={savingEdit} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                  </span>
                 ))}
               </div>
-              <button
-                type="button"
-                disabled={savingEdit}
-                onClick={() => setIconBrowserFor("edit")}
-                className="flex h-9 items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {editIcon ? (
-                  <>
-                    {(() => {
-                      const Icon = (Phosphor as any)[editIcon.charAt(0).toUpperCase() + editIcon.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())]
-                      return Icon ? <Icon weight="duotone" className="h-4 w-4 text-foreground" /> : null
-                    })()}
-                    <span>{editIcon}</span>
-                  </>
-                ) : (
-                  <span>Choose icon...</span>
-                )}
-              </button>
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs text-muted-foreground">Keywords</p>
-                <div className="flex flex-wrap gap-1">
-                  {keywordList.map((kw) => (
-                    <span key={kw} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs">
-                      {kw}
-                      <button onClick={() => removeKeyword(kw)} disabled={savingEdit} className="hover:text-destructive"><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="Add keywords" className="h-8 text-sm flex-1" disabled={savingEdit} onKeyDown={(e) => { if (e.key === "Enter") addKeywordToEdit() }} />
-                  <Button size="sm" variant="outline" onClick={addKeywordToEdit} disabled={savingEdit}><Plus className="h-3.5 w-3.5" /></Button>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}>
-                  {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5" />}
-                  {savingEdit ? "Saving..." : "Save"}
-                </Button>
+              <div className="flex gap-2">
+                <Input value={newKeywords} onChange={(e) => setNewKeywords(e.target.value)} placeholder="Add keywords" className="h-8 text-sm flex-1" disabled={savingEdit} onKeyDown={(e) => { if (e.key === "Enter") addKeywordToEdit() }} />
+                <Button size="sm" variant="outline" onClick={addKeywordToEdit} disabled={savingEdit}><Plus className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</Button>
+              <Button size="sm" className="flex-1" onClick={handleSaveEdit} disabled={savingEdit || !editName.trim()}>
+                {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5" />}
+                {savingEdit ? "Saving..." : "Save"}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        </DrawerContent>
+      </Drawer>
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => !deletingCat && setConfirmDelete(null)} />
-          <div className="relative w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-background border border-border p-6 shadow-lg">
-            <h3 className="text-sm font-semibold mb-2">Delete "{confirmDelete.name}"?</h3>
-            <p className="text-xs text-muted-foreground mb-4">
+      <Drawer open={!!confirmDelete} onOpenChange={(o) => { if (!o && !deletingCat) setConfirmDelete(null) }}>
+        <DrawerContent aria-label="Delete category">
+          <div className="flex flex-col gap-2 p-6">
+            <h3 className="text-sm font-semibold">Delete "{confirmDelete?.name}"?</h3>
+            <p className="text-xs text-muted-foreground mb-2">
               Transactions linked to this category will have their category removed (set to null). This action cannot be undone.
             </p>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)} disabled={deletingCat}>Cancel</Button>
-              <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleDelete(confirmDelete)} disabled={deletingCat}>
+              <Button size="sm" variant="destructive" className="flex-1" onClick={() => confirmDelete && handleDelete(confirmDelete)} disabled={deletingCat}>
                 {deletingCat ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Trash2 className="h-3.5 w-3.5" />}
                 {deletingCat ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </DrawerContent>
+      </Drawer>
 
       {iconBrowserFor === "add" && (
         <IconBrowser
