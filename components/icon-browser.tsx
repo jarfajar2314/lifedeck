@@ -37,7 +37,7 @@ export function IconBrowser({ value, onChange, onClose }: IconBrowserProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground">
+        <button onClick={onClose} className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground">
           <Phosphor.ArrowLeft weight="bold" className="h-5 w-5" />
         </button>
         <Input

@@ -109,7 +109,7 @@ export default function AccountsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
+              className="flex h-12 w-12 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -201,8 +201,8 @@ export default function AccountsPage() {
                     <div className="flex flex-col gap-2 flex-1">
                       <div className="flex items-center gap-2">
                         <Input value={editName} onChange={(e) => setEditName(capitalize(e.target.value))} className="h-8 text-sm flex-1" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(acc.id) }} />
-                        <button onClick={() => handleSaveEdit(acc.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-secondary"><Check className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handleSaveEdit(acc.id)} className="flex h-12 w-12 items-center justify-center rounded-lg text-success hover:bg-secondary"><Check className="h-4 w-4" /></button>
+                        <button onClick={() => setEditing(null)} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {COLORS.map((c) => (
@@ -246,11 +246,11 @@ export default function AccountsPage() {
                           <AccountBadge account={acc} size="md" />
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => startEdit(acc)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
-                            <Pencil className="h-3.5 w-3.5" />
+                          <button onClick={() => startEdit(acc)} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
+                            <Pencil className="h-4 w-4" />
                           </button>
-                          <button onClick={() => setDeleting(acc.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" />
+                          <button onClick={() => setDeleting(acc.id)} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </div>

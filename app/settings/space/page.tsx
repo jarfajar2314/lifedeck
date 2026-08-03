@@ -133,7 +133,7 @@ export default function SpaceSettingsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
+              className="flex h-12 w-12 items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -153,7 +153,7 @@ export default function SpaceSettingsPage() {
               onClick={() => setUserMenuOpen(true)}
               className="flex items-center justify-center rounded-full transition-colors hover:bg-secondary/50"
               aria-label="Open settings"
-              style={{ width: 44, height: 44 }}
+              style={{ width: 48, height: 48 }}
             >
               <Avatar size="sm">
                 <AvatarFallback className="text-foreground font-bold text-sm">
@@ -178,14 +178,14 @@ export default function SpaceSettingsPage() {
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <Input value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="h-9 text-sm flex-1" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleRename() }} />
-                  <button onClick={handleRename} className="flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-secondary"><Check className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => setEditingName(false)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-3.5 w-3.5" /></button>
+                  <button onClick={handleRename} className="flex h-12 w-12 items-center justify-center rounded-lg text-success hover:bg-secondary"><Check className="h-4 w-4" /></button>
+                  <button onClick={() => setEditingName(false)} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between rounded-xl bg-secondary/50 px-3 py-2">
                   <span className="text-sm font-medium">{currentSpace?.name}</span>
-                  <button onClick={() => { setNameInput(currentSpace?.name || ""); setEditingName(true) }} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
-                    <Pencil className="h-3.5 w-3.5" />
+                  <button onClick={() => { setNameInput(currentSpace?.name || ""); setEditingName(true) }} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors">
+                    <Pencil className="h-4 w-4" />
                   </button>
                 </div>
               )}
@@ -198,10 +198,10 @@ export default function SpaceSettingsPage() {
               {currentSpace?.inviteCode && (
                 <div className="flex items-center gap-2 rounded-xl bg-secondary/50 p-3">
                   <code className="flex-1 text-sm font-mono font-medium truncate">{currentSpace.inviteCode}</code>
-                  <button onClick={handleCopyCode} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors shrink-0" aria-label={copied ? "Copied" : "Copy invite code"}>
+                  <button onClick={handleCopyCode} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors shrink-0" aria-label={copied ? "Copied" : "Copy invite code"}>
                     {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </button>
-                  <button onClick={handleRegenerate} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors shrink-0" aria-label="Regenerate invite code">
+                  <button onClick={handleRegenerate} className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors shrink-0" aria-label="Regenerate invite code">
                     <RotateCcw className="h-4 w-4" />
                   </button>
                 </div>
@@ -230,9 +230,9 @@ export default function SpaceSettingsPage() {
                     </div>
                     <button
                       onClick={() => { toast(`Delete "${a.name}"?`, { action: { label: "Delete", onClick: () => handleDeleteAccount(a.id, a.name) } }) }}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      className="flex h-12 w-12 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
